@@ -12,12 +12,7 @@
           "package_name": "com.uppi.brasil"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "357522916455-cdohmmkt2olpvh33harv2ha0hcgob5g7.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
           "current_key": "AIzaSyA_cdVO_PRIFbwdl8_dnFQRUl_LQPZCO4U"
@@ -25,12 +20,7 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "357522916455-cdohmmkt2olpvh33harv2ha0hcgob5g7.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

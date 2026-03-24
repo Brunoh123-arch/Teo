@@ -1,9 +1,10 @@
 {
-  "apiKey": "AIzaSyDNBw6qaB1Hi7JhIEErYNfBbjVLoVilTjE",
-  "authDomain": "uppi-brasil.firebaseapp.com",
-  "projectId": "uppi-brasil",
-  "storageBucket": "uppi-brasil.firebasestorage.app",
-  "messagingSenderId": "357522916455",
-  "appId": "1:357522916455:web:0882b7db636481277d40c2",
-  "measurementId": "G-LPX9RZLS8Z"
+  "projectId": "gen-lang-client-0504311234",
+  "appId": "1:122716875584:web:9d915fa6ce56ca717ce8a5",
+  "apiKey": "AIzaSyCtTNuDDawYrPsksNpdJpD50Q32QhCZGhE",
+  "authDomain": "gen-lang-client-0504311234.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-20056920-2570-4f29-bd22-1005a05d47c4",
+  "storageBucket": "gen-lang-client-0504311234.firebasestorage.app",
+  "messagingSenderId": "122716875584",
+  "measurementId": ""
 }
