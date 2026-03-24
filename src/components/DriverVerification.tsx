@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { FileText, Camera, CheckCircle, AlertCircle, Clock, ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { FileText, Camera, CheckCircle, Clock, ArrowLeft } from 'lucide-react-native';
 import { userService } from '../services/userService';
 
 interface DriverVerificationProps {
@@ -10,7 +9,6 @@ interface DriverVerificationProps {
 }
 
 export const DriverVerification: React.FC<DriverVerificationProps> = ({ onClose, user }) => {
-  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     cnhNumber: '',
@@ -20,222 +18,162 @@ export const DriverVerification: React.FC<DriverVerificationProps> = ({ onClose,
     year: ''
   });
   const [docs, setDocs] = useState<{
-    cnh: File | null;
-    crlv: File | null;
-    selfie: File | null;
+    cnh: any | null;
+    crlv: any | null;
+    selfie: any | null;
   }>({
     cnh: null,
     crlv: null,
     selfie: null,
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'cnh' | 'crlv' | 'selfie') => {
-    if (e.target.files && e.target.files[0]) {
-      setDocs(prev => ({ ...prev, [type]: e.target.files![0] }));
-    }
+  const handleFileChange = (type: 'cnh' | 'crlv' | 'selfie') => {
+    // Placeholder for document picker integration
+    Alert.alert("Document Picker", `Implementar seleção de arquivo para ${type}`);
   };
 
   const handleUpload = async () => {
-    if (!docs.cnh || !docs.crlv || !docs.selfie) {
-      toast.error("Por favor, envie todos os documentos.");
-      return;
-    }
-
-    if (!formData.cnhNumber || !formData.plate || !formData.model || !formData.color) {
-      toast.error("Por favor, preencha todos os dados do veículo e CNH.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { storage, db } = await import('../firebase');
-
-      const uploadFile = async (file: File, path: string) => {
-        const fileRef = ref(storage, `documents/${user.uid}/${path}`);
-        await uploadBytes(fileRef, file);
-        return getDownloadURL(fileRef);
-      };
-
-      const [cnhUrl, crlvUrl, selfieUrl] = await Promise.all([
-        uploadFile(docs.cnh, 'cnh'),
-        uploadFile(docs.crlv, 'crlv'),
-        uploadFile(docs.selfie, 'selfie'),
-      ]);
-
-      // Save document URLs to Firestore
-      await setDoc(doc(db, 'documents', user.uid), {
-        userId: user.uid,
-        cnhUrl,
-        crlvUrl,
-        selfieUrl,
-        status: 'pending',
-        createdAt: new Date()
-      });
-
-      // Update user status
-      await userService.updateDriverData({ 
-        submittedAt: new Date().toISOString(),
-        cnh: formData.cnhNumber,
-        vehicle: {
-          plate: formData.plate,
-          model: formData.model,
-          color: formData.color,
-          year: formData.year
-        },
-        rejectionReason: null
-      });
-
-      toast.success("Cadastro enviado com sucesso! Aguarde a análise.");
-      onClose();
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao enviar documentos.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Placeholder for upload logic
+    Alert.alert("Upload", "Implementar lógica de upload para React Native");
   };
 
   return (
-    <div className="fixed inset-0 z-[2000] bg-white flex flex-col">
-      <div className="p-4 border-b border-gray-100 flex items-center gap-4">
-        <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft className="w-6 h-6 text-gray-800" />
-        </button>
-        <h2 className="text-xl font-bold text-gray-900">Seja um Motorista</h2>
-      </div>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onClose} style={styles.backButton}>
+          <ArrowLeft size={24} color="#1f2937" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Seja um Motorista</Text>
+      </View>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-md mx-auto">
-          <div className="mb-8 text-center">
-            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-10 h-10 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Verificação de Conta</h3>
-            <p className="text-gray-500">Para sua segurança e de nossos passageiros, precisamos verificar seus documentos.</p>
-          </div>
+      <ScrollView style={styles.content}>
+        <View style={styles.centered}>
+          <View style={styles.iconContainer}>
+            <FileText size={40} color="#2563eb" />
+          </View>
+          <Text style={styles.title}>Verificação de Conta</Text>
+          <Text style={styles.subtitle}>Para sua segurança e de nossos passageiros, precisamos verificar seus documentos.</Text>
+        </View>
 
-          <div className="space-y-4 mb-8">
-            <h4 className="font-bold text-gray-900 border-b pb-2">Dados do Veículo e CNH</h4>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CNH (Número)</label>
-              <input
-                type="text"
-                required
-                value={formData.cnhNumber}
-                onChange={(e) => setFormData({...formData, cnhNumber: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent"
-                placeholder="Número da sua CNH"
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Dados do Veículo e CNH</Text>
+          <Text style={styles.label}>CNH (Número)</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.cnhNumber}
+            onChangeText={(text) => setFormData({...formData, cnhNumber: text})}
+            placeholder="Número da sua CNH"
+          />
+          <Text style={styles.label}>Placa do Veículo</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.plate}
+            onChangeText={(text) => setFormData({...formData, plate: text})}
+            placeholder="Ex: ABC-1234"
+          />
+          <View style={styles.row}>
+            <View style={styles.flex1}>
+              <Text style={styles.label}>Modelo</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.model}
+                onChangeText={(text) => setFormData({...formData, model: text})}
+                placeholder="Ex: Onix"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Placa do Veículo</label>
-              <input
-                type="text"
-                required
-                value={formData.plate}
-                onChange={(e) => setFormData({...formData, plate: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent"
-                placeholder="Ex: ABC-1234"
+            </View>
+            <View style={styles.flex1}>
+              <Text style={styles.label}>Cor</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.color}
+                onChangeText={(text) => setFormData({...formData, color: text})}
+                placeholder="Ex: Prata"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.model}
-                  onChange={(e) => setFormData({...formData, model: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent"
-                  placeholder="Ex: Onix"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cor</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.color}
-                  onChange={(e) => setFormData({...formData, color: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent"
-                  placeholder="Ex: Prata"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ano</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.year}
-                  onChange={(e) => setFormData({...formData, year: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent"
-                  placeholder="Ex: 2020"
-                />
-              </div>
-            </div>
-          </div>
+            </View>
+          </View>
+          <Text style={styles.label}>Ano</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.year}
+            onChangeText={(text) => setFormData({...formData, year: text})}
+            placeholder="Ex: 2020"
+          />
+        </View>
 
-          <div className="space-y-4 mb-8">
-            <h4 className="font-bold text-gray-900 border-b pb-2">Fotos dos Documentos</h4>
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm relative">
-                <CheckCircle className={`w-6 h-6 ${docs.cnh ? 'text-green-500' : 'text-gray-300'}`} />
-                <input type="file" onChange={(e) => handleFileChange(e, 'cnh')} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900">CNH {docs.cnh && <span className="text-xs text-green-600">(Selecionado)</span>}</h4>
-                <p className="text-sm text-gray-500">Carteira Nacional de Habilitação válida.</p>
-              </div>
-            </div>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Fotos dos Documentos</Text>
+          <TouchableOpacity style={styles.docItem} onPress={() => handleFileChange('cnh')}>
+            <CheckCircle size={24} color={docs.cnh ? '#22c55e' : '#d1d5db'} />
+            <View>
+              <Text style={styles.docTitle}>CNH {docs.cnh && <Text style={styles.selected}>(Selecionado)</Text>}</Text>
+              <Text style={styles.docSubtitle}>Carteira Nacional de Habilitação válida.</Text>
+            </View>
+          </TouchableOpacity>
 
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm relative">
-                <CheckCircle className={`w-6 h-6 ${docs.crlv ? 'text-green-500' : 'text-gray-300'}`} />
-                <input type="file" onChange={(e) => handleFileChange(e, 'crlv')} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900">CRLV {docs.crlv && <span className="text-xs text-green-600">(Selecionado)</span>}</h4>
-                <p className="text-sm text-gray-500">Documento do veículo atualizado.</p>
-              </div>
-            </div>
+          <TouchableOpacity style={styles.docItem} onPress={() => handleFileChange('crlv')}>
+            <CheckCircle size={24} color={docs.crlv ? '#22c55e' : '#d1d5db'} />
+            <View>
+              <Text style={styles.docTitle}>CRLV {docs.crlv && <Text style={styles.selected}>(Selecionado)</Text>}</Text>
+              <Text style={styles.docSubtitle}>Documento do veículo atualizado.</Text>
+            </View>
+          </TouchableOpacity>
 
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm relative">
-                <Camera className={`w-6 h-6 ${docs.selfie ? 'text-blue-500' : 'text-gray-300'}`} />
-                <input type="file" onChange={(e) => handleFileChange(e, 'selfie')} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900">Selfie {docs.selfie && <span className="text-xs text-green-600">(Selecionado)</span>}</h4>
-                <p className="text-sm text-gray-500">Uma foto sua segurando o documento.</p>
-              </div>
-            </div>
-          </div>
+          <TouchableOpacity style={styles.docItem} onPress={() => handleFileChange('selfie')}>
+            <Camera size={24} color={docs.selfie ? '#3b82f6' : '#d1d5db'} />
+            <View>
+              <Text style={styles.docTitle}>Selfie {docs.selfie && <Text style={styles.selected}>(Selecionado)</Text>}</Text>
+              <Text style={styles.docSubtitle}>Uma foto sua segurando o documento.</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
 
-          <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-2xl mb-8 flex gap-3">
-            <Clock className="w-6 h-6 text-yellow-600 shrink-0" />
-            <p className="text-sm text-yellow-800">A análise dos documentos pode levar até 24 horas úteis.</p>
-          </div>
-        </div>
-      </div>
+        <View style={styles.warningBox}>
+          <Clock size={24} color="#b45309" />
+          <Text style={styles.warningText}>A análise dos documentos pode levar até 24 horas úteis.</Text>
+        </View>
+      </ScrollView>
 
-      <div className="p-6 border-t border-gray-100">
-        <button
-          onClick={handleUpload}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          onPress={handleUpload}
           disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          style={[styles.submitButton, isSubmitting && styles.disabledButton]}
         >
           {isSubmitting ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Enviando...
-            </>
+            <ActivityIndicator color="#ffffff" />
           ) : (
-            "Enviar Documentos"
+            <Text style={styles.submitButtonText}>Enviar Documentos</Text>
           )}
-        </button>
-      </div>
-    </div>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center' },
+  backButton: { padding: 8, marginLeft: -8 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+  content: { flex: 1, padding: 24 },
+  centered: { alignItems: 'center', marginBottom: 32 },
+  iconContainer: { width: 80, height: 80, backgroundColor: '#eff6ff', borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
+  subtitle: { color: '#6b7280', textAlign: 'center' },
+  section: { marginBottom: 32 },
+  sectionTitle: { fontWeight: 'bold', color: '#111827', borderBottomWidth: 1, borderBottomColor: '#f3f4f6', paddingBottom: 8, marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: 'medium', color: '#374151', marginBottom: 4 },
+  input: { width: '100%', padding: 12, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 12, marginBottom: 16 },
+  row: { flexDirection: 'row', gap: 16 },
+  flex1: { flex: 1 },
+  docItem: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderRadius: 16, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f3f4f6', marginBottom: 12 },
+  docTitle: { fontWeight: 'bold', color: '#111827' },
+  selected: { fontSize: 12, color: '#16a34a' },
+  docSubtitle: { fontSize: 12, color: '#6b7280' },
+  warningBox: { flexDirection: 'row', gap: 12, padding: 16, backgroundColor: '#fef3c7', borderRadius: 16, marginBottom: 32 },
+  warningText: { fontSize: 14, color: '#92400e', flex: 1 },
+  footer: { padding: 24, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
+  submitButton: { width: '100%', backgroundColor: '#2563eb', padding: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  disabledButton: { opacity: 0.5 },
+  submitButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 }
+});

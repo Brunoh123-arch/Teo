@@ -39,7 +39,7 @@ export const RateRideModal = ({ isOpen, onClose, rideId, onRated, driverName = "
     setSubmitting(true);
     triggerHaptic(ImpactStyle.Medium);
     try {
-      await rideService.rateRide(rideId, rating, comment);
+      await rideService.rateRide(rideId, rating, 0, comment);
       toast.success("Obrigado pela sua avaliação!");
       onRated();
       onClose();

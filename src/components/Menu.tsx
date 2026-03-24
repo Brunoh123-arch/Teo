@@ -1,9 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, History, Star, Settings, Car, LogOut, ShieldAlert, FileText, Wallet, HelpCircle, Bell, Gift, Tag, TrendingUp } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { Capacitor } from '@capacitor/core';
-import { IosSwitch } from './IosSwitch';
+import { User, History, Star, Settings, Car, LogOut, ShieldAlert, FileText, Wallet, HelpCircle, Bell, Gift, Tag, TrendingUp, X } from 'lucide-react';
 
 interface MenuProps {
   isOpen: boolean;
@@ -34,12 +31,6 @@ interface MenuProps {
   onToggleNotifications: (enabled: boolean) => void;
 }
 
-const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
-  if (Capacitor.isNativePlatform()) {
-    await Haptics.impact({ style });
-  }
-};
-
 export const SideMenu: React.FC<MenuProps> = ({
   isOpen,
   onClose,
@@ -68,63 +59,46 @@ export const SideMenu: React.FC<MenuProps> = ({
   notificationsEnabled,
   onToggleNotifications,
 }) => {
+  if (!isOpen) return null;
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-50">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/20 z-10 pointer-events-auto"
-            onClick={() => {
-              triggerHaptic();
-              onClose();
-            }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/50"
           />
           <motion.div
-            initial={{ x: "-100%" }}
+            initial={{ x: -320 }}
             animate={{ x: 0 }}
-            exit={{ x: "-100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="absolute inset-y-0 left-0 w-80 bg-[var(--system-secondary-background)]/90 backdrop-blur-2xl z-20 shadow-2xl flex flex-col pointer-events-auto border-r border-white/50"
-            style={{ 
-              paddingTop: 'var(--safe-top)',
-              paddingBottom: 'var(--safe-bottom)',
-              paddingLeft: 'var(--safe-left)'
-            }}
+            exit={{ x: -320 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="absolute top-0 bottom-0 left-0 w-80 bg-white/95 z-20 shadow-2xl overflow-y-auto"
           >
-            <div className="p-8 bg-[var(--system-background)] border-b border-gray-100 flex flex-col items-start gap-4">
+            <div className="p-8 bg-white border-b border-gray-100">
               {user ? (
                 <button 
-                  onClick={() => {
-                    triggerHaptic();
-                    onOpenProfile();
-                    onClose();
-                  }}
-                  className="flex flex-col items-start gap-4 w-full text-left hover:opacity-80 transition-opacity"
+                  onClick={() => { onOpenProfile(); onClose(); }}
+                  className="flex flex-col items-start gap-4"
                 >
-                  <img
-                    src={user.photoURL || ""}
-                    alt="Profile"
-                    className="w-20 h-20 rounded-full border-2 border-white shadow-md"
-                  />
+                  <img src={user.photoURL || ""} alt="Avatar" className="w-20 h-20 rounded-full border-2 border-white" />
                   <div>
-                    <h2 className="font-semibold text-xl text-[var(--system-label)]">{user.displayName}</h2>
-                    <p className="text-sm text-[var(--system-secondary-label)]">{user.email}</p>
+                    <p className="text-xl font-semibold text-gray-900">{user.displayName}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
                   </div>
                 </button>
               ) : (
-                <div className="flex flex-col items-start gap-4 w-full">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                    <User className="w-8 h-8 text-[var(--system-secondary-label)]" />
+                <div className="flex flex-col items-start gap-4">
+                  <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User size={32} className="text-gray-500" />
                   </div>
                   <button
-                    onClick={() => {
-                      triggerHaptic();
-                      onOpenLogin();
-                    }}
-                    className="bg-[var(--system-blue)] text-white px-6 py-3 rounded-2xl font-semibold w-full text-center shadow-sm"
+                    onClick={() => { onOpenLogin(); onClose(); }}
+                    className="bg-blue-600 px-6 py-3 rounded-2xl w-full text-center text-white font-bold text-base"
                   >
                     Entrar
                   </button>
@@ -132,7 +106,7 @@ export const SideMenu: React.FC<MenuProps> = ({
               )}
             </div>
 
-            <div className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
+            <div className="p-4 space-y-2">
               {[
                 { icon: History, label: 'Suas viagens', action: onOpenHistory },
                 { icon: Wallet, label: 'Carteira', action: onOpenWallet },
@@ -142,118 +116,93 @@ export const SideMenu: React.FC<MenuProps> = ({
               ].map((item, i) => (
                 <button
                   key={i}
-                  onClick={() => {
-                    triggerHaptic();
-                    item.action();
-                    onClose();
-                  }}
-                  className="ios-list-item w-full"
+                  onClick={() => { item.action(); onClose(); }}
+                  className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 w-full"
                 >
-                  <item.icon className="w-6 h-6 text-[var(--system-blue)] mr-4" />
-                  <span className="font-semibold text-[var(--system-label)] text-lg">{item.label}</span>
+                  <item.icon size={24} className="text-blue-600" />
+                  <span className="text-lg font-semibold text-gray-900">{item.label}</span>
                 </button>
               ))}
               
-              <div className="ios-list-item w-full justify-between">
-                <div className="flex items-center">
-                  <Bell className="w-6 h-6 text-[var(--system-blue)] mr-4" />
-                  <span className="font-semibold text-[var(--system-label)] text-lg">Notificações</span>
+              <div className="flex items-center justify-between p-4 rounded-xl">
+                <div className="flex items-center gap-4">
+                  <Bell size={24} className="text-blue-600" />
+                  <span className="text-lg font-semibold text-gray-900">Notificações</span>
                 </div>
-                <IosSwitch checked={notificationsEnabled} onChange={onToggleNotifications} />
+                <input 
+                  type="checkbox" 
+                  checked={notificationsEnabled} 
+                  onChange={(e) => onToggleNotifications(e.target.checked)}
+                  className="toggle toggle-primary"
+                />
               </div>
               
               {appMode === "driver" && (
                 <>
                   <button
-                    onClick={() => {
-                      triggerHaptic();
-                      onOpenEarnings();
-                      onClose();
-                    }}
-                    className="ios-list-item w-full"
+                    onClick={() => { onOpenEarnings(); onClose(); }}
+                    className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 w-full"
                   >
-                    <TrendingUp className="w-6 h-6 text-[var(--system-blue)] mr-4" />
-                    <span className="font-semibold text-[var(--system-label)] text-lg">Ganhos</span>
+                    <TrendingUp size={24} className="text-blue-600" />
+                    <span className="text-lg font-semibold text-gray-900">Ganhos</span>
                   </button>
                   <button
-                    onClick={() => {
-                      triggerHaptic();
-                      onOpenVehicleProfile();
-                      onClose();
-                    }}
-                    className="ios-list-item w-full"
+                    onClick={() => { onOpenVehicleProfile(); onClose(); }}
+                    className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 w-full"
                   >
-                    <Settings className="w-6 h-6 text-[var(--system-blue)] mr-4" />
-                    <span className="font-semibold text-[var(--system-label)] text-lg">Perfil do Veículo</span>
+                    <Settings size={24} className="text-blue-600" />
+                    <span className="text-lg font-semibold text-gray-900">Perfil do Veículo</span>
                   </button>
                 </>
               )}
               
-              <div className="my-2 border-t border-gray-100" />
+              <div className="h-px bg-gray-100 my-2" />
               
               <button
-                onClick={() => {
-                  triggerHaptic();
-                  onOpenPrivacy();
-                  onClose();
-                }}
-                className="ios-list-item w-full"
+                onClick={() => { onOpenPrivacy(); onClose(); }}
+                className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 w-full"
               >
-                <FileText className="w-6 h-6 text-[var(--system-secondary-label)] mr-4" />
-                <span className="font-semibold text-[var(--system-label)] text-lg">Privacidade</span>
+                <FileText size={24} className="text-gray-500" />
+                <span className="text-lg font-semibold text-gray-900">Privacidade</span>
               </button>
               <button
-                onClick={() => {
-                  triggerHaptic();
-                  onOpenSupport();
-                  onClose();
-                }}
-                className="ios-list-item w-full"
+                onClick={() => { onOpenSupport(); onClose(); }}
+                className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 w-full"
               >
-                <HelpCircle className="w-6 h-6 text-[var(--system-secondary-label)] mr-4" />
-                <span className="font-semibold text-[var(--system-label)] text-lg">Suporte</span>
+                <HelpCircle size={24} className="text-gray-500" />
+                <span className="text-lg font-semibold text-gray-900">Suporte</span>
               </button>
             </div>
 
             {user && (
-              <div className="p-4 border-t border-gray-200 flex flex-col gap-2">
+              <div className="p-4 border-t border-gray-100 space-y-2">
                 <button
-                  onClick={() => {
-                    triggerHaptic(ImpactStyle.Medium);
-                    onToggleAppMode();
-                    onClose();
-                  }}
-                  className="flex items-center gap-3 p-3 hover:bg-blue-50 text-blue-600 rounded-lg w-full text-left"
+                  onClick={() => { onToggleAppMode(); onClose(); }}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 w-full text-blue-600"
                 >
-                  <Car className="w-5 h-5" />
-                  <span className="font-medium">
+                  <Car size={20} />
+                  <span className="text-base font-medium">
                     Mudar para Modo {appMode === "rider" ? "Motorista" : "Passageiro"}
                   </span>
                 </button>
                 <button
-                  onClick={() => {
-                    triggerHaptic();
-                    onLogout();
-                  }}
-                  className="flex items-center gap-3 p-3 hover:bg-red-50 text-red-600 rounded-lg w-full text-left"
+                  onClick={onLogout}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 w-full text-red-600"
                 >
-                  <LogOut className="w-5 h-5" />
-                  <span className="font-medium">Sair</span>
+                  <LogOut size={20} />
+                  <span className="text-base font-medium">Sair</span>
                 </button>
                 <button
-                  onClick={() => {
-                    triggerHaptic(ImpactStyle.Heavy);
-                    onDeleteAccount();
-                  }}
-                  className="flex items-center gap-3 p-3 hover:bg-red-100 text-red-700 rounded-lg w-full text-left mt-2"
+                  onClick={onDeleteAccount}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 w-full text-red-700"
                 >
-                  <ShieldAlert className="w-5 h-5" />
-                  <span className="font-medium">Excluir Conta</span>
+                  <ShieldAlert size={20} />
+                  <span className="text-base font-medium">Excluir Conta</span>
                 </button>
               </div>
             )}
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

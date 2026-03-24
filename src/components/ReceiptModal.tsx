@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Receipt, MapPin, Calendar, CreditCard, User, Download, Printer } from 'lucide-react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { X, Receipt, MapPin, Calendar, CreditCard, User } from 'lucide-react-native';
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -12,8 +12,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   isOpen,
   onClose,
   ride,
-}) => {
-  if (!ride) return null;
+}: ReceiptModalProps) => {
+  if (!isOpen || !ride) return null;
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -29,125 +29,139 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[2100] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm">
-          <motion.div
-            initial={{ y: "100%", opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0 }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="bg-[var(--system-secondary-background)]/90 backdrop-blur-2xl w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl relative z-10 flex flex-col max-h-[90vh] border-t border-white/50"
-          >
-            <div className="p-4 border-b border-gray-100 flex flex-col items-center bg-white/50 sticky top-0 z-20">
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-4" />
-              <div className="flex justify-between items-center w-full">
-                <div className="flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-[var(--system-blue)]" />
-                  <h3 className="font-bold text-lg text-[var(--system-label)]">Recibo da Viagem</h3>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-6 h-6 text-[var(--system-secondary-label)]" />
-                </button>
-              </div>
-            </div>
+    <Modal
+      visible={isOpen}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <TouchableOpacity style={styles.backdrop} onPress={onClose} />
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <View style={styles.handle} />
+            <View style={styles.headerRow}>
+              <View style={styles.headerTitleContainer}>
+                <Receipt size={20} color="#2563eb" />
+                <Text style={styles.headerTitle}>Recibo da Viagem</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <X size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Header Info */}
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-blue-50 text-[var(--system-blue)] rounded-3xl flex items-center justify-center mx-auto mb-2">
-                  <Receipt size={32} />
-                </div>
-                <h2 className="text-3xl font-semibold text-[var(--system-label)]">
-                  {formatCurrency(ride.price)}
-                </h2>
-                <p className="text-sm text-[var(--system-secondary-label)]">Obrigado por viajar conosco!</p>
-              </div>
+          <ScrollView style={styles.body}>
+            <View style={styles.summaryContainer}>
+              <View style={styles.iconContainer}>
+                <Receipt size={32} color="#2563eb" />
+              </View>
+              <Text style={styles.price}>{formatCurrency(ride.price)}</Text>
+              <Text style={styles.thankYou}>Obrigado por viajar conosco!</Text>
+            </View>
 
-              {/* Details Grid */}
-              <div className="space-y-4 bg-[var(--system-background)] p-4 rounded-3xl border border-gray-100">
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-[var(--system-secondary-label)] mt-0.5" />
-                  <div>
-                    <p className="text-xs text-[var(--system-secondary-label)] uppercase font-semibold">Data e Hora</p>
-                    <p className="text-sm font-semibold text-[var(--system-label)]">{formatDate(ride.createdAt)}</p>
-                  </div>
-                </div>
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailRow}>
+                <Calendar size={20} color="#6b7280" />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>DATA E HORA</Text>
+                  <Text style={styles.detailValue}>{formatDate(ride.createdAt)}</Text>
+                </View>
+              </View>
 
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[var(--system-green)] mt-0.5" />
-                  <div>
-                    <p className="text-xs text-[var(--system-secondary-label)] uppercase font-semibold">Origem</p>
-                    <p className="text-sm font-semibold text-[var(--system-label)] line-clamp-1">{ride.originName || 'Local de partida'}</p>
-                  </div>
-                </div>
+              <View style={styles.detailRow}>
+                <MapPin size={20} color="#16a34a" />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>ORIGEM</Text>
+                  <Text style={styles.detailValue}>{ride.originName || 'Local de partida'}</Text>
+                </View>
+              </View>
 
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[var(--system-red)] mt-0.5" />
-                  <div>
-                    <p className="text-xs text-[var(--system-secondary-label)] uppercase font-semibold">Destino</p>
-                    <p className="text-sm font-semibold text-[var(--system-label)] line-clamp-1">{ride.destName}</p>
-                  </div>
-                </div>
+              <View style={styles.detailRow}>
+                <MapPin size={20} color="#dc2626" />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>DESTINO</Text>
+                  <Text style={styles.detailValue}>{ride.destName}</Text>
+                </View>
+              </View>
 
-                <div className="flex items-start gap-3">
-                  <CreditCard className="w-5 h-5 text-[var(--system-secondary-label)] mt-0.5" />
-                  <div>
-                    <p className="text-xs text-[var(--system-secondary-label)] uppercase font-semibold">Pagamento</p>
-                    <p className="text-sm font-semibold text-[var(--system-label)] uppercase">{ride.paymentMethod || 'PIX'}</p>
-                  </div>
-                </div>
+              <View style={styles.detailRow}>
+                <CreditCard size={20} color="#6b7280" />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>PAGAMENTO</Text>
+                  <Text style={styles.detailValue}>{ride.paymentMethod || 'PIX'}</Text>
+                </View>
+              </View>
 
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-[var(--system-secondary-label)] mt-0.5" />
-                  <div>
-                    <p className="text-xs text-[var(--system-secondary-label)] uppercase font-semibold">Motorista</p>
-                    <p className="text-sm font-semibold text-[var(--system-label)]">{ride.driverName || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
+              <View style={styles.detailRow}>
+                <User size={20} color="#6b7280" />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>MOTORISTA</Text>
+                  <Text style={styles.detailValue}>{ride.driverName || 'N/A'}</Text>
+                </View>
+              </View>
+            </View>
 
-              {/* Breakdown */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-[var(--system-label)] px-1">Detalhamento</h4>
-                <div className="border border-gray-100 rounded-3xl overflow-hidden bg-[var(--system-secondary-background)]">
-                  <div className="flex justify-between p-4 border-b border-gray-100">
-                    <span className="text-sm text-[var(--system-secondary-label)]">Tarifa Base</span>
-                    <span className="text-sm font-semibold text-[var(--system-label)]">{formatCurrency(ride.price * 0.8)}</span>
-                  </div>
-                  <div className="flex justify-between p-4 border-b border-gray-100">
-                    <span className="text-sm text-[var(--system-secondary-label)]">Taxas e Impostos</span>
-                    <span className="text-sm font-semibold text-[var(--system-label)]">{formatCurrency(ride.price * 0.2)}</span>
-                  </div>
-                  <div className="flex justify-between p-4 bg-gray-50">
-                    <span className="text-sm font-semibold text-[var(--system-label)]">Total</span>
-                    <span className="text-sm font-semibold text-[var(--system-label)]">{formatCurrency(ride.price)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <View style={styles.breakdownContainer}>
+              <Text style={styles.breakdownTitle}>Detalhamento</Text>
+              <View style={styles.breakdownBox}>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Tarifa Base</Text>
+                  <Text style={styles.breakdownValue}>{formatCurrency(ride.price * 0.8)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Taxas e Impostos</Text>
+                  <Text style={styles.breakdownValue}>{formatCurrency(ride.price * 0.2)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>{formatCurrency(ride.price)}</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
 
-            <div className="p-6 border-t border-gray-100 bg-white/50 flex gap-3">
-              <button
-                onClick={() => window.print()}
-                className="flex-1 bg-gray-100 text-[var(--system-label)] font-semibold py-4 rounded-2xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-              >
-                <Printer size={18} />
-                Imprimir
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 bg-[var(--system-blue)] text-white font-semibold py-4 rounded-2xl hover:opacity-90 transition-opacity"
-              >
-                Fechar
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+          <View style={styles.footer}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButtonFull}>
+              <Text style={styles.closeButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  modalContent: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '90%', paddingBottom: 20 },
+  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', alignItems: 'center' },
+  handle: { width: 40, height: 6, backgroundColor: '#d1d5db', borderRadius: 3, marginBottom: 16 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  headerTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+  closeButton: { padding: 8 },
+  body: { flex: 1, padding: 24 },
+  summaryContainer: { alignItems: 'center', marginBottom: 24 },
+  iconContainer: { width: 64, height: 64, backgroundColor: '#eff6ff', borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  price: { fontSize: 30, fontWeight: 'bold', color: '#111827' },
+  thankYou: { fontSize: 14, color: '#6b7280' },
+  detailsContainer: { backgroundColor: '#ffffff', padding: 16, borderRadius: 24, borderWidth: 1, borderColor: '#f3f4f6', marginBottom: 24 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
+  detailTextContainer: { flex: 1 },
+  detailLabel: { fontSize: 10, fontWeight: 'bold', color: '#6b7280', marginBottom: 2 },
+  detailValue: { fontSize: 14, fontWeight: 'bold', color: '#111827' },
+  breakdownContainer: { marginBottom: 24 },
+  breakdownTitle: { fontSize: 14, fontWeight: 'bold', color: '#111827', marginBottom: 8, paddingHorizontal: 4 },
+  breakdownBox: { backgroundColor: '#f9fafb', borderRadius: 24, borderWidth: 1, borderColor: '#f3f4f6', overflow: 'hidden' },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  breakdownLabel: { fontSize: 14, color: '#6b7280' },
+  breakdownValue: { fontSize: 14, fontWeight: 'bold', color: '#111827' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, backgroundColor: '#e5e7eb' },
+  totalLabel: { fontSize: 14, fontWeight: 'bold', color: '#111827' },
+  totalValue: { fontSize: 14, fontWeight: 'bold', color: '#111827' },
+  footer: { padding: 24, borderTopWidth: 1, borderTopColor: '#f3f4f6', backgroundColor: '#ffffff' },
+  closeButtonFull: { width: '100%', backgroundColor: '#2563eb', padding: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  closeButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 }
+});

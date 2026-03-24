@@ -1,7 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'sonner';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { View, Text, TouchableOpacity, StyleSheet, Image, TextInput, Modal, Alert, ActivityIndicator, Linking } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Capacitor } from '@capacitor/core';
 import { 
   ArrowLeft, 
@@ -23,59 +23,770 @@ import {
   ChevronRight,
   Navigation,
   MapPin,
-  Clock
+  Clock,
+  ArrowUp,
+  ArrowUpRight
 } from 'lucide-react';
 import { rideService } from '../services/rideService';
 
-// --- Sub-componentes ---
-
-const RideOption = ({ type, title, description, price, discountedPrice, icon, selected, onClick, coupon }: any) => (
-    <motion.div
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      role="button"
-      aria-label={`Selecionar opção de corrida ${title}`}
-      aria-pressed={selected}
-      className={`flex items-center justify-between p-4 rounded-3xl cursor-pointer transition-all duration-200 border-2 ${selected ? "border-[var(--system-blue)] bg-white shadow-md" : "border-transparent bg-[var(--system-secondary-background)] hover:bg-gray-50"}`}
-    >
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden">
-          <img src={icon} alt={title} className="w-full h-full object-contain" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-[var(--system-label)] text-lg">{title}</h3>
-          </div>
-          <p className="text-sm text-[var(--system-secondary-label)] font-medium">{description}</p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className={`font-semibold text-[var(--system-label)] text-xl ${coupon ? 'line-through text-sm text-[var(--system-secondary-label)]' : ''}`}>
-          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(price)}
-        </p>
-        {coupon && (
-          <p className="font-semibold text-[var(--system-blue)] text-xl">
-            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(discountedPrice)}
-          </p>
-        )}
-      </div>
-    </motion.div>
+const RideOption = ({ type, title, description, price, discountedPrice, icon, selected, onClick, coupon, onDetails }: any) => (
+  <TouchableOpacity
+    onPress={onClick}
+    style={[styles.rideOption, selected && styles.rideOptionSelected]}
+  >
+    <View style={styles.rideOptionLeft}>
+      <View style={styles.rideOptionIconContainer}>
+        <Image source={{ uri: icon }} style={styles.rideOptionIcon} />
+      </View>
+      <View>
+        <Text style={styles.rideOptionTitle}>{title}</Text>
+        <Text style={styles.rideOptionDescription}>{description}</Text>
+      </View>
+    </View>
+    <View style={styles.rideOptionRight}>
+      <Text style={[styles.rideOptionPrice, coupon && styles.rideOptionPriceDiscounted]}>
+        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(price)}
+      </Text>
+      {coupon && (
+        <Text style={styles.rideOptionDiscountedPrice}>
+          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(discountedPrice)}
+        </Text>
+      )}
+      {onDetails && (
+        <TouchableOpacity onPress={onDetails} style={styles.detailsButton}>
+          <Info size={14} color="#2563eb" />
+          <Text style={styles.detailsButtonText}>Detalhes</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  </TouchableOpacity>
 );
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 24,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  rideEstimateContainer: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 32,
+  },
+  surgeWarning: {
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  surgeIconContainer: {
+    backgroundColor: '#ffedd5',
+    padding: 10,
+    borderRadius: 20,
+  },
+  surgeTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f97316',
+  },
+  surgeDescription: {
+    fontSize: 12,
+    color: '#f97316',
+    opacity: 0.8,
+    fontWeight: '500',
+  },
+  couponSection: {
+    marginTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    paddingHorizontal: 4,
+  },
+  couponActive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    borderRadius: 16,
+  },
+  couponLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  couponDescription: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  couponStatus: {
+    fontSize: 10,
+    color: '#2563eb',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  removeCouponText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#ef4444',
+  },
+  couponInputContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    gap: 12,
+  },
+  couponInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  applyButton: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    justifyContent: 'center',
+  },
+  applyButtonDisabled: {
+    opacity: 0.3,
+  },
+  applyButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  confirmButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 20,
+    borderRadius: 24,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  loadingIconContainer: {
+    position: 'relative',
+    marginBottom: 40,
+  },
+  loadingCarIcon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  loadingDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 40,
+    fontWeight: '500',
+    paddingHorizontal: 16,
+  },
+  cancelButton: {
+    width: '100%',
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 20,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#111827',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  rideOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: 12,
+  },
+  rideOptionSelected: {
+    borderColor: '#2563eb',
+    backgroundColor: '#ffffff',
+  },
+  rideOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  rideOptionIconContainer: {
+    width: 56,
+    height: 56,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  rideOptionIcon: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  rideOptionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  rideOptionDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  rideOptionRight: {
+    alignItems: 'flex-end',
+  },
+  rideOptionPrice: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  rideOptionPriceDiscounted: {
+    fontSize: 14,
+    color: '#6b7280',
+    textDecorationLine: 'line-through',
+  },
+  rideOptionDiscountedPrice: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  detailsButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#2563eb',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    width: '100%',
+    gap: 12,
+  },
+  sosButton: {
+    backgroundColor: '#dc2626',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  sosButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  callButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  callButtonText: {
+    color: '#111827',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  sosModalCancelButton: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  sosModalCancelButtonText: {
+    color: '#111827',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  handle: {
+    width: 48,
+    height: 6,
+    backgroundColor: '#d1d5db',
+    borderRadius: 3,
+    marginBottom: 24,
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    backgroundColor: '#fee2e2',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 24,
+  },
+  breakdownList: {
+    width: '100%',
+    gap: 16,
+    marginBottom: 24,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  breakdownRowTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#2563eb',
+  },
+  paymentOption: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: '#f3f4f6',
+  },
+  paymentOptionSelected: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff',
+  },
+  paymentOptionText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6b7280',
+  },
+  paymentOptionTextSelected: {
+    color: '#2563eb',
+  },
+  calculatingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+  },
+  spinner: {
+    marginBottom: 24,
+  },
+  calculatingText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#6b7280',
+    marginBottom: 24,
+  },
+  cancelCalculatingButton: {
+    padding: 12,
+  },
+  cancelCalculatingButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2563eb',
+  },
+  rideStatusContainer: {
+    padding: 20,
+  },
+  rideStatusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  rideStatusTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  rideStatusSubheader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  rideStatusSubtitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+  },
+  sosButtonHeader: {
+    backgroundColor: '#fee2e2',
+    padding: 12,
+    borderRadius: 24,
+  },
+  driverInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    padding: 20,
+    backgroundColor: '#f9fafb',
+    borderRadius: 24,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  driverImageContainer: {
+    position: 'relative',
+  },
+  driverImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  driverRatingBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  driverRatingText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  driverDetails: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  driverVehicle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  driverPlateContainer: {
+    marginTop: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignSelf: 'flex-start',
+  },
+  driverPlate: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111827',
+    letterSpacing: 2,
+  },
+  driverActions: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  driverActionButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  chatBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    backgroundColor: '#dc2626',
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  rideActionsContainer: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  shareRideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#eff6ff',
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  shareRideButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2563eb',
+  },
+  cancelRideButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  cancelRideButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#dc2626',
+  },
+  completedContainer: {
+    alignItems: 'center',
+    padding: 24,
+  },
+  completedIconContainer: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#dcfce7',
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  completedTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  completedDescription: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  completedPrice: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 40,
+  },
+  ratingTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    marginBottom: 24,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 40,
+  },
+  starButton: {
+    padding: 4,
+  },
+  tipContainer: {
+    width: '100%',
+    marginBottom: 40,
+  },
+  tipTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    marginBottom: 16,
+  },
+  tipGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  tipButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  tipButtonSelected: {
+    backgroundColor: '#2563eb',
+  },
+  tipButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  tipButtonTextSelected: {
+    color: '#fff',
+  },
+  submitRatingButton: {
+    width: '100%',
+    backgroundColor: '#111827',
+    paddingVertical: 20,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  submitRatingButtonDisabled: {
+    opacity: 0.3,
+  },
+  submitRatingButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  pixContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#eff6ff',
+    borderRadius: 16,
+    marginTop: 16,
+    gap: 16,
+  },
+  pixIconContainer: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#dbeafe',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pixTextContainer: {
+    flex: 1,
+  },
+  pixTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e40af',
+  },
+  pixDescription: {
+    fontSize: 14,
+    color: '#3b82f6',
+  },
+});
+
 interface RideFlowProps {
-  rideStatus: string;
+  rideStatus: any;
   currentRideId: string | null; // Adicionado
   destination: any;
   setDestination: (dest: any) => void;
-  setRideStatus: (status: string) => void;
+  setRideStatus: any;
   setRoute: (route: any) => void;
   setRideEstimate: (estimate: any) => void;
   rideEstimate: any;
-  selectedRideType: string;
-  setSelectedRideType: (type: string) => void;
-  paymentMethod: string;
-  setPaymentMethod: (method: string) => void;
+  selectedRideType: any;
+  setSelectedRideType: any;
+  paymentMethod: any;
+  setPaymentMethod: any;
   handleRequestRide: () => void;
   onOpenCancelRide: () => void;
   completedRideData: any;
@@ -87,11 +798,13 @@ interface RideFlowProps {
   tip: number;
   setTip: (tip: number) => void;
   handleSubmitRating: () => void;
+  coupon?: any;
+  setCoupon?: any;
 }
 
-const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
   if (Capacitor.isNativePlatform()) {
-    await Haptics.impact({ style });
+    await Haptics.impactAsync(style);
   }
 };
 
@@ -131,14 +844,14 @@ export const RideFlow: React.FC<RideFlowProps> = ({
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
     setIsValidatingCoupon(true);
-    triggerHaptic(ImpactStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const data = await rideService.validateCoupon(couponCode);
       setCoupon(data);
-      toast.success(`Cupom aplicado: ${data.description}`);
+      Alert.alert("Sucesso", `Cupom aplicado: ${data.description}`);
       setCouponCode('');
     } catch (error: any) {
-      toast.error(error.message || "Erro ao validar cupom");
+      Alert.alert("Erro", error.message || "Erro ao validar cupom");
     } finally {
       setIsValidatingCoupon(false);
     }
@@ -151,671 +864,522 @@ export const RideFlow: React.FC<RideFlowProps> = ({
     }
     return Math.max(0, price - coupon.discountValue);
   };
+  
   const handleShareRide = async () => {
-    triggerHaptic();
-    const shareUrl = `${window.location.origin}/share-ride/${currentRideId}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Acompanhe minha viagem',
-          url: shareUrl,
-        });
-        toast.success("Viagem compartilhada!");
-      } catch (err) {
-        console.error('Error sharing:', err);
-      }
-    } else {
-      navigator.clipboard.writeText(shareUrl);
-      toast.success("Link de compartilhamento copiado!");
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Share functionality would need to be implemented using expo-sharing
+    Alert.alert("Compartilhar", "Funcionalidade de compartilhamento a ser implementada.");
   };
   return (
     <>
       {rideStatus === "selecting" && destination && (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => {
-                triggerHaptic();
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setRideStatus("idle");
                 setDestination(null);
                 setRoute(null);
                 setRideEstimate(null);
               }}
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full"
+              style={styles.backButton}
             >
-              <ArrowLeft className="w-6 h-6 text-gray-800" />
-            </button>
-            <h2 className="text-xl font-bold text-gray-900">Selecione uma corrida</h2>
-          </div>
+              <ArrowLeft size={28} color="#2563eb" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Selecione uma corrida</Text>
+          </View>
 
           {rideEstimate ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col gap-3 mb-6"
-            >
+            <Animated.View style={styles.rideEstimateContainer}>
               {rideEstimate.surgeMultiplier && rideEstimate.surgeMultiplier > 1.1 && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-2 flex items-center gap-3">
-                  <div className="bg-orange-100 p-2 rounded-full">
-                    <TrendingUp className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-orange-800">Tarifa Dinâmica Ativa</p>
-                    <p className="text-xs text-orange-700">Preços mais altos devido à alta demanda.</p>
-                  </div>
-                </div>
+                <View style={styles.surgeWarning}>
+                  <View style={styles.surgeIconContainer}>
+                    <TrendingUp size={24} color="#f97316" />
+                  </View>
+                  <View>
+                    <Text style={styles.surgeTitle}>Tarifa Dinâmica Ativa</Text>
+                    <Text style={styles.surgeDescription}>Preços mais altos devido à alta demanda.</Text>
+                  </View>
+                </View>
               )}
 
-              {/* Ride Option 1 */}
-              <motion.div
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
+              <RideOption
+                type="padrao"
+                title="Padrão"
+                description={`Chegada em ${rideEstimate.duration} min`}
+                price={rideEstimate.pricePadrao}
+                discountedPrice={calculateDiscountedPrice(rideEstimate.pricePadrao)}
+                icon="https://mobile-content.uber.com/launch-experience/ride.png"
+                selected={selectedRideType === "padrao"}
                 onClick={() => {
-                  triggerHaptic();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedRideType("padrao");
                 }}
-                className={`flex items-center justify-between p-4 rounded-3xl cursor-pointer transition-all duration-200 border-2 ${selectedRideType === "padrao" ? "border-[var(--system-blue)] bg-white shadow-md" : "border-transparent bg-[var(--system-secondary-background)] hover:bg-gray-50"}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden">
-                    <img src="https://mobile-content.uber.com/launch-experience/ride.png" alt="UberX" className="w-full h-full object-contain" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[var(--system-label)] text-lg">Padrão</h3>
-                      <span className="bg-gray-200 text-gray-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Popular</span>
-                    </div>
-                    <p className="text-sm text-[var(--system-secondary-label)] font-medium">
-                      Chegada em {rideEstimate.duration} min
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="flex flex-col items-end">
-                    <p className={`font-black text-[var(--system-label)] text-xl ${coupon ? 'line-through text-sm text-[var(--system-secondary-label)]' : ''}`}>
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(rideEstimate.pricePadrao)}
-                    </p>
-                    {coupon && (
-                      <p className="font-black text-[var(--system-blue)] text-xl">
-                        {new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(calculateDiscountedPrice(rideEstimate.pricePadrao))}
-                      </p>
-                    )}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); triggerHaptic(); setShowFareBreakdown(true); }}
-                      className="text-[10px] text-[var(--system-blue)] font-bold flex items-center gap-1 mt-1 hover:underline"
-                    >
-                      <Info className="w-3 h-3" /> Detalhes
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
+                coupon={coupon}
+                onDetails={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowFareBreakdown(true);
+                }}
+              />
 
-              {/* Ride Option 2 */}
-              <motion.div
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
+              <RideOption
+                type="comfort"
+                title="Comfort"
+                description="Carros novos e espaçosos"
+                price={rideEstimate.priceComfort}
+                discountedPrice={calculateDiscountedPrice(rideEstimate.priceComfort)}
+                icon="https://mobile-content.uber.com/launch-experience/comfort.png"
+                selected={selectedRideType === "comfort"}
                 onClick={() => {
-                  triggerHaptic();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedRideType("comfort");
                 }}
-                className={`flex items-center justify-between p-4 rounded-3xl cursor-pointer transition-all duration-200 border-2 ${selectedRideType === "comfort" ? "border-[var(--system-blue)] bg-white shadow-md" : "border-transparent bg-[var(--system-secondary-background)] hover:bg-gray-50"}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden">
-                    <img src="https://mobile-content.uber.com/launch-experience/comfort.png" alt="Comfort" className="w-full h-full object-contain" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[var(--system-label)] text-lg">Comfort</h3>
-                      <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Melhor</span>
-                    </div>
-                    <p className="text-sm text-[var(--system-secondary-label)] font-medium">
-                      Carros novos e espaçosos
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`font-black text-[var(--system-label)] text-xl ${coupon ? 'line-through text-sm text-[var(--system-secondary-label)]' : ''}`}>
-                    {new Intl.NumberFormat("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    }).format(rideEstimate.priceComfort)}
-                  </p>
-                  {coupon && (
-                    <p className="font-black text-[var(--system-blue)] text-xl">
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(calculateDiscountedPrice(rideEstimate.priceComfort))}
-                    </p>
-                  )}
-                </div>
-              </motion.div>
+                coupon={coupon}
+              />
 
-              {/* Ride Option 3: Moto */}
-              <motion.div
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
+              <RideOption
+                type="moto"
+                title="Moto"
+                description="Economize tempo no trânsito"
+                price={rideEstimate.pricePadrao * 0.6}
+                discountedPrice={calculateDiscountedPrice(rideEstimate.pricePadrao * 0.6)}
+                icon="https://mobile-content.uber.com/launch-experience/uber_moto.png"
+                selected={selectedRideType === "moto"}
                 onClick={() => {
-                  triggerHaptic();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedRideType("moto");
                 }}
-                className={`flex items-center justify-between p-4 rounded-3xl cursor-pointer transition-all duration-200 border-2 ${selectedRideType === "moto" ? "border-[var(--system-blue)] bg-white shadow-md" : "border-transparent bg-[var(--system-secondary-background)] hover:bg-gray-50"}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden">
-                    <img src="https://mobile-content.uber.com/launch-experience/uber_moto.png" alt="Moto" className="w-full h-full object-contain" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[var(--system-label)] text-lg">Moto</h3>
-                      <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Rápido</span>
-                    </div>
-                    <p className="text-sm text-[var(--system-secondary-label)] font-medium">
-                      Economize tempo no trânsito
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`font-black text-[var(--system-label)] text-xl ${coupon ? 'line-through text-sm text-[var(--system-secondary-label)]' : ''}`}>
-                    {new Intl.NumberFormat("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    }).format(rideEstimate.pricePadrao * 0.6)}
-                  </p>
-                  {coupon && (
-                    <p className="font-black text-[var(--system-blue)] text-xl">
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(calculateDiscountedPrice(rideEstimate.pricePadrao * 0.6))}
-                    </p>
-                  )}
-                </div>
-              </motion.div>
+                coupon={coupon}
+              />
 
               {/* Payment Method Selector */}
-              <div className="mt-2">
-                <h3 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">
+              <div className="mt-4">
+                <h3 className="font-bold text-[var(--system-secondary-label)] mb-4 text-xs uppercase tracking-widest px-1">
                   Forma de Pagamento
                 </h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
+                <div className="grid grid-cols-3 gap-3">
+                  <TouchableOpacity
+                    onPress={() => {
                       triggerHaptic();
                       setPaymentMethod("pix");
                     }}
-                    className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-colors ${paymentMethod === "pix" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    style={[styles.paymentOption, paymentMethod === "pix" && styles.paymentOptionSelected]}
                   >
-                    <QrCode className="w-6 h-6" />
-                    <span className="text-sm font-bold">Pix</span>
-                  </button>
-                  <button
-                    onClick={() => {
+                    <QrCode size={28} color={paymentMethod === "pix" ? "#2563eb" : "#6b7280"} />
+                    <Text style={[styles.paymentOptionText, paymentMethod === "pix" && styles.paymentOptionTextSelected]}>Pix</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
                       triggerHaptic();
                       setPaymentMethod("dinheiro");
                     }}
-                    className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-colors ${paymentMethod === "dinheiro" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    style={[styles.paymentOption, paymentMethod === "dinheiro" && styles.paymentOptionSelected]}
                   >
-                    <Banknote className="w-6 h-6" />
-                    <span className="text-sm font-bold">Dinheiro</span>
-                  </button>
-                  <button
-                    onClick={() => {
+                    <Banknote size={28} color={paymentMethod === "dinheiro" ? "#2563eb" : "#6b7280"} />
+                    <Text style={[styles.paymentOptionText, paymentMethod === "dinheiro" && styles.paymentOptionTextSelected]}>Dinheiro</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
                       triggerHaptic();
                       setPaymentMethod("cartao");
                     }}
-                    className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-colors ${paymentMethod === "cartao" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    style={[styles.paymentOption, paymentMethod === "cartao" && styles.paymentOptionSelected]}
                   >
-                    <CreditCard className="w-6 h-6" />
-                    <span className="text-sm font-bold">Cartão</span>
-                  </button>
+                    <CreditCard size={28} color={paymentMethod === "cartao" ? "#2563eb" : "#6b7280"} />
+                    <Text style={[styles.paymentOptionText, paymentMethod === "cartao" && styles.paymentOptionTextSelected]}>Cartão</Text>
+                  </TouchableOpacity>
                 </div>
               </div>
 
               {/* PIX Mock Info */}
               {paymentMethod === 'pix' && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3"
-                >
-                  <div className="bg-white p-2 rounded-lg border border-blue-200">
-                    <QrCode className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-blue-900">Pagamento via PIX</p>
-                    <p className="text-[10px] text-blue-700">Pague após a corrida ser aceita pelo motorista.</p>
-                  </div>
-                </motion.div>
+                <View style={styles.pixContainer}>
+                  <View style={styles.pixIconContainer}>
+                    <QrCode size={32} color="#2563eb" />
+                  </View>
+                  <View style={styles.pixTextContainer}>
+                    <Text style={styles.pixTitle}>Pagamento via PIX</Text>
+                    <Text style={styles.pixDescription}>Pague após a corrida ser aceita pelo motorista.</Text>
+                  </View>
+                </View>
               )}
 
               {/* Coupon Section */}
-              <div className="mt-4">
-                <h3 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">
-                  Cupom de Desconto
-                </h3>
+              <View style={styles.couponSection}>
+                <Text style={styles.sectionTitle}>Cupom de Desconto</Text>
                 {coupon ? (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Tag className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="text-sm font-bold text-blue-900">{coupon.description}</p>
-                        <p className="text-[10px] text-blue-600 uppercase font-bold">Cupom Ativo</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => { triggerHaptic(); setCoupon(null); }}
-                      className="text-xs font-bold text-red-600 hover:underline"
+                  <View style={styles.couponActive}>
+                    <View style={styles.couponLeft}>
+                      <Tag size={24} color="#2563eb" />
+                      <View>
+                        <Text style={styles.couponDescription}>{coupon.description}</Text>
+                        <Text style={styles.couponStatus}>CUPOM ATIVO</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setCoupon(null);
+                      }}
                     >
-                      Remover
-                    </button>
-                  </div>
+                      <Text style={styles.removeCouponText}>Remover</Text>
+                    </TouchableOpacity>
+                  </View>
                 ) : (
-                  <div className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input 
-                        type="text"
+                  <View style={styles.couponInputContainer}>
+                    <View style={styles.inputWrapper}>
+                      <Ticket size={20} color="#9ca3af" />
+                      <TextInput 
                         value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        placeholder="Código do cupom"
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none text-sm uppercase font-bold"
+                        onChangeText={(text) => setCouponCode(text.toUpperCase())}
+                        placeholder="CÓDIGO DO CUPOM"
+                        style={styles.couponInput}
+                        placeholderTextColor="#9ca3af"
                       />
-                    </div>
-                    <button
-                      onClick={handleApplyCoupon}
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleApplyCoupon}
                       disabled={isValidatingCoupon || !couponCode.trim()}
-                      className="bg-gray-900 text-white px-6 rounded-xl font-bold text-sm disabled:opacity-50"
+                      style={[styles.applyButton, (isValidatingCoupon || !couponCode.trim()) && styles.applyButtonDisabled]}
                     >
-                      {isValidatingCoupon ? '...' : 'Aplicar'}
-                    </button>
-                  </div>
+                      <Text style={styles.applyButtonText}>
+                        {isValidatingCoupon ? '...' : 'Aplicar'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
-              </div>
-            </motion.div>
+              </View>
+            </Animated.View>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-500 text-sm mb-4">Calculando melhor rota...</p>
-              <button 
-                onClick={() => {
+            <View style={styles.calculatingContainer}>
+              <ActivityIndicator size="large" color="#2563eb" style={styles.spinner} />
+              <Text style={styles.calculatingText}>Calculando melhor rota...</Text>
+              <TouchableOpacity 
+                onPress={() => {
                   triggerHaptic();
                   setRideStatus("idle");
                   setDestination(null);
                   setRoute(null);
                   setRideEstimate(null);
                 }}
-                className="text-blue-600 text-sm font-bold hover:underline"
+                style={styles.cancelCalculatingButton}
               >
-                Tentar novamente
-              </button>
-            </div>
+                <Text style={styles.cancelCalculatingButtonText}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
-          <button
-            onClick={() => {
-              triggerHaptic(ImpactStyle.Heavy);
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               handleRequestRide();
             }}
             disabled={!rideEstimate}
-            className="w-full bg-[var(--system-blue)] text-white font-semibold text-lg py-4 rounded-3xl hover:opacity-90 transition-opacity disabled:bg-gray-300"
+            style={[styles.confirmButton, !rideEstimate && styles.confirmButtonDisabled]}
           >
-            Confirmar {selectedRideType === "padrao" ? "Padrão" : "Comfort"}
-          </button>
-        </div>
+            <Text style={styles.confirmButtonText}>
+              Confirmar {selectedRideType === "padrao" ? "Padrão" : "Comfort"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {rideStatus === "requesting" && (
-        <div className="flex flex-col items-center justify-center py-8">
-          <div className="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin mb-4"></div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Procurando seu motorista...</h2>
-          <p className="text-gray-500 text-center mb-6">
-            Seu pedido está no banco de dados. Aguardando um motorista aceitar.
-          </p>
-          <button
-            onClick={() => {
-              triggerHaptic();
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingIconContainer}>
+            <ActivityIndicator size="large" color="#111827" />
+            <View style={styles.loadingCarIcon}>
+              <Car size={40} color="#111827" />
+            </View>
+          </View>
+          <Text style={styles.loadingTitle}>Procurando motorista...</Text>
+          <Text style={styles.loadingDescription}>
+            Aguardando um motorista aceitar sua solicitação. Isso pode levar alguns instantes.
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onOpenCancelRide();
             }}
-            className="w-full bg-gray-200 text-gray-900 font-bold text-lg py-4 rounded-xl hover:bg-gray-300 transition-colors"
+            style={styles.cancelButton}
           >
-            Cancelar Pedido
-          </button>
-        </div>
+            <Text style={styles.cancelButtonText}>Cancelar Solicitação</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {["accepted", "arrived", "in_progress"].includes(rideStatus) && (
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {rideStatus === "accepted" && "O motorista está a caminho"}
+        <View style={styles.rideStatusContainer}>
+          <View style={styles.rideStatusHeader}>
+            <View>
+              <Text style={styles.rideStatusTitle}>
+                {rideStatus === "accepted" && "Motorista a caminho"}
                 {rideStatus === "arrived" && "O motorista chegou!"}
-                {rideStatus === "in_progress" && "Em viagem para o destino"}
-              </h2>
-              {rideStatus === "accepted" && (
-                <p className="text-gray-500">Aguarde no local de embarque</p>
-              )}
-              {rideStatus === "arrived" && (
-                <p className="text-green-600 font-medium">Encontre o motorista</p>
-              )}
-              {rideStatus === "in_progress" && (
-                <p className="text-blue-600 font-medium">Aproveite a viagem</p>
-              )}
-            </div>
-            {/* Botão de Emergência */}
-            <button
-              onClick={() => {
-                triggerHaptic(ImpactStyle.Heavy);
+                {rideStatus === "in_progress" && "Em viagem"}
+              </Text>
+              <View style={styles.rideStatusSubheader}>
+                <Clock size={16} color="#2563eb" />
+                <Text style={styles.rideStatusSubtitle}>
+                  {rideStatus === "accepted" && "Aguarde no local"}
+                  {rideStatus === "arrived" && "Encontre o veículo"}
+                  {rideStatus === "in_progress" && "Aproveite o trajeto"}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
                 setIsSOSModalOpen(true);
               }}
-              className="bg-red-100 text-red-600 p-3 rounded-full hover:bg-red-200 transition-colors"
-              title="Emergência"
+              style={styles.sosButtonHeader}
             >
-              <AlertTriangle className="w-6 h-6" />
-            </button>
-          </div>
+              <AlertTriangle size={28} color="#dc2626" />
+            </TouchableOpacity>
+          </View>
 
-          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl mb-6 border border-gray-100">
-            <div className="relative">
-              <img
-                src={completedRideData?.driverPhoto || "https://i.pravatar.cc/150?img=11"}
-                alt="Driver"
-                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
+          <View style={styles.driverInfoContainer}>
+            <View style={styles.driverImageContainer}>
+              <Image
+                source={{ uri: completedRideData?.driverPhoto || "https://i.pravatar.cc/150?img=11" }}
+                style={styles.driverImage}
               />
-              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm flex items-center gap-1">
-                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                <span className="text-xs font-bold">{completedRideData?.driverRating ? Number(completedRideData.driverRating).toFixed(1) : "5.0"}</span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-gray-900 text-lg">
-                {completedRideData?.driverName || "Motorista"}
-              </h3>
-              <p className="text-sm text-gray-500 font-medium">
-                {completedRideData?.driverVehicle?.color} {completedRideData?.driverVehicle?.model} • {completedRideData?.driverVehicle?.year}
-              </p>
-              <p className="text-sm font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200 inline-block mt-1">
-                {completedRideData?.driverVehicle?.plate || "ABC-1234"}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button 
-                onClick={() => triggerHaptic()}
-                className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 border border-gray-100"
+              <View style={styles.driverRatingBadge}>
+                <Star size={14} color="#f59e0b" fill="#f59e0b" />
+                <Text style={styles.driverRatingText}>{completedRideData?.driverRating ? Number(completedRideData.driverRating).toFixed(1) : "5.0"}</Text>
+              </View>
+            </View>
+            <View style={styles.driverDetails}>
+              <Text style={styles.driverName}>{completedRideData?.driverName || "Motorista"}</Text>
+              <Text style={styles.driverVehicle}>{completedRideData?.driverVehicle?.color} {completedRideData?.driverVehicle?.model}</Text>
+              <View style={styles.driverPlateContainer}>
+                <Text style={styles.driverPlate}>{completedRideData?.driverVehicle?.plate || "ABC-1234"}</Text>
+              </View>
+            </View>
+            <View style={styles.driverActions}>
+              <TouchableOpacity 
+                onPress={() => triggerHaptic()}
+                style={styles.driverActionButton}
               >
-                <Phone className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => {
+                <Phone size={24} color="#2563eb" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
                   triggerHaptic();
                   setIsChatOpen(true);
                 }}
-                className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 border border-gray-100 relative"
+                style={styles.driverActionButton}
               >
-                <MessageSquare className="w-5 h-5" />
+                <MessageSquare size={24} color="#2563eb" />
                 {chatMessages.length > 0 &&
                   chatMessages[chatMessages.length - 1].senderId !== user?.uid && (
-                    <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+                    <View style={styles.chatBadge} />
                   )}
-              </button>
-              <button
-                onClick={handleShareRide}
-                className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 border border-gray-100"
-                title="Compartilhar Viagem"
-              >
-                <span className="font-bold text-xs">Compartilhar</span>
-              </button>
-            </div>
-          </div>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-          {rideStatus !== "in_progress" && (
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => {
-                  const lat = completedRideData?.origin?.lat || 0;
-                  const lng = completedRideData?.origin?.lng || 0;
-                  window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_system');
-                }}
-                className="flex-1 bg-blue-50 text-blue-700 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border border-blue-100 hover:bg-blue-100 transition-colors"
-              >
-                <Navigation className="w-4 h-4" />
-                Waze
-              </button>
-              <button
-                onClick={() => {
-                  const lat = completedRideData?.origin?.lat || 0;
-                  const lng = completedRideData?.origin?.lng || 0;
-                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_system');
-                }}
-                className="flex-1 bg-green-50 text-green-700 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border border-green-100 hover:bg-green-100 transition-colors"
-              >
-                <Navigation className="w-4 h-4" />
-                Google Maps
-              </button>
-            </div>
-          )}
-
-          {rideStatus !== "in_progress" && (
-            <button
-              onClick={() => {
-                triggerHaptic();
-                onOpenCancelRide();
-              }}
-              className="w-full bg-gray-200 text-gray-900 font-bold text-lg py-4 rounded-xl hover:bg-gray-300 transition-colors"
+          <View style={styles.rideActionsContainer}>
+            <TouchableOpacity
+              onPress={handleShareRide}
+              style={styles.shareRideButton}
             >
-              Cancelar Corrida
-            </button>
-          )}
-        </div>
+              <Navigation size={20} color="#2563eb" />
+              <Text style={styles.shareRideButtonText}>Compartilhar Viagem</Text>
+            </TouchableOpacity>
+
+            {rideStatus !== "in_progress" && (
+              <TouchableOpacity
+                onPress={() => {
+                  triggerHaptic();
+                  onOpenCancelRide();
+                }}
+                style={styles.cancelRideButton}
+              >
+                <Text style={styles.cancelRideButtonText}>Cancelar Corrida</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       )}
 
       {rideStatus === "completed" && completedRideData && (
-        <div className="flex flex-col items-center text-center py-4">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-            <Check className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Corrida Concluída!</h2>
-          <p className="text-gray-500 mb-6">Você chegou ao seu destino.</p>
+        <View style={styles.completedContainer}>
+          <View style={styles.completedIconContainer}>
+            <Check size={40} color="#16a34a" />
+          </View>
+          <Text style={styles.completedTitle}>Viagem concluída!</Text>
+          <Text style={styles.completedDescription}>Você chegou ao seu destino com segurança.</Text>
 
-          <div className="text-4xl font-bold text-gray-900 mb-8">
+          <Text style={styles.completedPrice}>
             {new Intl.NumberFormat("pt-BR", {
               style: "currency",
               currency: "BRL",
             }).format(completedRideData.price || 0)}
-          </div>
+          </Text>
 
-          <h3 className="font-semibold text-gray-700 mb-4">Como foi a viagem?</h3>
-          <div className="flex gap-2 mb-6">
+          <Text style={styles.ratingTitle}>Como foi sua experiência?</Text>
+          <View style={styles.ratingContainer}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <button
+              <TouchableOpacity
                 key={star}
-                onClick={() => {
+                onPress={() => {
                   triggerHaptic();
                   setRating(star);
                 }}
-                className="p-2 transition-transform hover:scale-110"
+                style={styles.starButton}
               >
                 <Star
-                  className={`w-10 h-10 ${rating >= star ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+                  size={48}
+                  color={rating >= star ? "#f59e0b" : "#d1d5db"}
+                  fill={rating >= star ? "#f59e0b" : "transparent"}
                 />
-              </button>
+              </TouchableOpacity>
             ))}
-          </div>
+          </View>
 
           {rating > 0 && (
-            <div className="w-full mb-8">
-              <h3 className="font-semibold text-gray-700 mb-3">Adicionar uma gorjeta?</h3>
-              <div className="flex gap-2 justify-center">
+            <View style={styles.tipContainer}>
+              <Text style={styles.tipTitle}>Adicionar gorjeta?</Text>
+              <View style={styles.tipGrid}>
                 {[0, 2, 5, 10].map((amount) => (
-                  <button
+                  <TouchableOpacity
                     key={amount}
-                    onClick={() => {
+                    onPress={() => {
                       triggerHaptic();
                       setTip(amount);
                     }}
-                    className={`flex-1 py-3 rounded-xl font-bold transition-colors ${
-                      tip === amount
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                    style={[styles.tipButton, tip === amount && styles.tipButtonSelected]}
                   >
-                    {amount === 0 ? "Agora não" : `R$ ${amount}`}
-                  </button>
+                    <Text style={[styles.tipButtonText, tip === amount && styles.tipButtonTextSelected]}>
+                      {amount === 0 ? "Não" : `R$ ${amount}`}
+                    </Text>
+                  </TouchableOpacity>
                 ))}
-              </div>
-            </div>
+              </View>
+            </View>
           )}
 
-          <button
-            onClick={() => {
-              triggerHaptic(ImpactStyle.Medium);
+          <TouchableOpacity
+            onPress={() => {
+              triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
               handleSubmitRating();
             }}
             disabled={rating === 0}
-            className="w-full bg-black text-white font-bold text-lg py-4 rounded-xl hover:bg-gray-800 transition-colors disabled:bg-gray-400"
+            style={[styles.submitRatingButton, rating === 0 && styles.submitRatingButtonDisabled]}
           >
-            Avaliar e Concluir
-          </button>
-        </div>
+            <Text style={styles.submitRatingButtonText}>Avaliar e Concluir</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Fare Breakdown Modal */}
-      <AnimatePresence>
-        {showFareBreakdown && (
-          <div className="fixed inset-0 z-[3000] flex flex-col justify-end pointer-events-auto">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={() => setShowFareBreakdown(false)}
-            />
-            <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="bg-[var(--system-secondary-background)]/90 backdrop-blur-2xl rounded-t-3xl w-full p-6 shadow-2xl border-t border-white/50 relative z-10 flex flex-col items-center"
-            >
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-6" />
-              <div className="flex justify-between items-center w-full mb-6">
-                <h3 className="text-xl font-bold text-[var(--system-label)]">Detalhes do Preço</h3>
-                <button onClick={() => setShowFareBreakdown(false)} className="p-2 hover:bg-gray-200/50 rounded-full transition-colors">
-                  <X className="w-6 h-6 text-[var(--system-secondary-label)]" />
-                </button>
-              </div>
+      {showFareBreakdown && (
+          <Modal
+            transparent={true}
+            visible={showFareBreakdown}
+            animationType="slide"
+            onRequestClose={() => setShowFareBreakdown(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <TouchableOpacity 
+                style={StyleSheet.absoluteFill}
+                onPress={() => setShowFareBreakdown(false)}
+              />
+              <View style={styles.modalContent}>
+                <View style={styles.handle} />
+                <View style={styles.headerRow}>
+                  <Text style={styles.modalTitle}>Detalhes do Preço</Text>
+                  <TouchableOpacity onPress={() => setShowFareBreakdown(false)}>
+                    <X size={24} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.breakdownList}>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Tarifa Base</Text>
+                    <Text style={styles.breakdownValue}>R$ 5,00</Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Distância</Text>
+                    <Text style={styles.breakdownValue}>R$ {rideEstimate?.distance?.toFixed(1)}</Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Tempo</Text>
+                    <Text style={styles.breakdownValue}>R$ {rideEstimate?.duration}</Text>
+                  </View>
+                  <View style={styles.breakdownRowTotal}>
+                    <Text style={styles.totalLabel}>Total Estimado</Text>
+                    <Text style={styles.totalValue}>R$ {rideEstimate?.pricePadrao}</Text>
+                  </View>
+                </View>
 
-              <div className="space-y-4 w-full">
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--system-secondary-label)] font-medium">Tarifa Base</span>
-                  <span className="font-bold text-[var(--system-label)]">R$ 5,00</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--system-secondary-label)] font-medium">Distância ({rideEstimate?.distance?.toFixed(1)} km)</span>
-                  <span className="font-bold text-[var(--system-label)]">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(rideEstimate?.distance * 1.5)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--system-secondary-label)] font-medium">Tempo ({rideEstimate?.duration} min)</span>
-                  <span className="font-bold text-[var(--system-label)]">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(rideEstimate?.duration * 0.3)}
-                  </span>
-                </div>
-                {rideEstimate?.surgeMultiplier > 1 && (
-                  <div className="flex justify-between text-sm text-[var(--system-orange)] font-bold">
-                    <span>Tarifa Dinâmica (x{rideEstimate.surgeMultiplier.toFixed(1)})</span>
-                    <span>+ {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((rideEstimate.pricePadrao / rideEstimate.surgeMultiplier) * (rideEstimate.surgeMultiplier - 1))}</span>
-                  </div>
-                )}
-                <div className="h-px bg-gray-100 my-2" />
-                <div className="flex justify-between text-lg font-black">
-                  <span className="text-[var(--system-label)]">Total Estimado</span>
-                  <span className="text-[var(--system-blue)]">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(rideEstimate?.pricePadrao)}
-                  </span>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setShowFareBreakdown(false)}
-                className="w-full mt-8 bg-[var(--system-label)] text-[var(--system-background)] font-bold py-4 rounded-2xl shadow-lg hover:opacity-90 transition-opacity pb-[env(safe-area-inset-bottom,16px)]"
-              >
-                Entendi
-              </button>
-            </motion.div>
-          </div>
+                <TouchableOpacity 
+                  onPress={() => setShowFareBreakdown(false)}
+                  style={styles.sosButton}
+                >
+                  <Text style={styles.sosButtonText}>Entendi</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         )}
-      </AnimatePresence>
 
       {/* SOS Modal */}
-      <AnimatePresence>
-        {isSOSModalOpen && (
-          <div className="fixed inset-0 z-[3000] flex flex-col justify-end pointer-events-auto">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setIsSOSModalOpen(false)}
-            />
-            <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="bg-[var(--system-secondary-background)]/90 backdrop-blur-2xl rounded-t-3xl w-full p-6 shadow-2xl border-t border-white/50 relative z-10 flex flex-col items-center"
-            >
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-6" />
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
-                <AlertTriangle className="w-10 h-10 text-red-600" />
-              </div>
-              
-              <h3 className="text-2xl font-black text-[var(--system-label)] mb-2">S.O.S Emergência</h3>
-              <p className="text-[var(--system-secondary-label)] text-center mb-8 font-medium">
-                Deseja enviar um alerta de emergência para nossa central e contatos de segurança?
-              </p>
+      {isSOSModalOpen && (
+          <Modal
+            transparent={true}
+            visible={isSOSModalOpen}
+            animationType="slide"
+            onRequestClose={() => setIsSOSModalOpen(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <TouchableOpacity 
+                style={StyleSheet.absoluteFill}
+                onPress={() => setIsSOSModalOpen(false)}
+              />
+              <View style={styles.modalContent}>
+                <View style={styles.handle} />
+                <View style={styles.iconContainer}>
+                  <AlertTriangle size={40} color="#dc2626" />
+                </View>
+                
+                <Text style={styles.modalTitle}>S.O.S Emergência</Text>
+                <Text style={styles.modalDescription}>
+                  Deseja enviar um alerta de emergência para nossa central e contatos de segurança?
+                </Text>
 
-              <div className="flex flex-col gap-3 w-full">
-                <button 
-                  onClick={() => {
-                    triggerHaptic(ImpactStyle.Heavy);
-                    setIsSOSModalOpen(false);
-                    toast.error("ALERTA DE EMERGÊNCIA ENVIADO!", { duration: 5000 });
-                  }}
-                  className="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-red-200 hover:bg-red-700 transition-colors"
-                >
-                  ENVIAR ALERTA AGORA
-                </button>
-                <button 
-                  onClick={() => {
-                    triggerHaptic(ImpactStyle.Medium);
-                    window.location.href = 'tel:190';
-                  }}
-                  className="w-full bg-white border border-gray-200 text-[var(--system-label)] font-bold py-4 rounded-2xl hover:bg-gray-50 transition-colors"
-                >
-                  Ligar para 190
-                </button>
-                <button 
-                  onClick={() => setIsSOSModalOpen(false)}
-                  className="w-full bg-gray-100 text-[var(--system-secondary-label)] font-bold py-4 rounded-2xl hover:bg-gray-200 transition-colors pb-[env(safe-area-inset-bottom,16px)]"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </motion.div>
-          </div>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+                      setIsSOSModalOpen(false);
+                      Alert.alert("Erro", "ALERTA DE EMERGÊNCIA ENVIADO!");
+                    }}
+                    style={styles.sosButton}
+                  >
+                    <Text style={styles.sosButtonText}>ENVIAR ALERTA AGORA</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+                      Linking.openURL('tel:190');
+                    }}
+                    style={styles.callButton}
+                  >
+                    <Text style={styles.callButtonText}>Ligar para 190</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setIsSOSModalOpen(false)}
+                    style={styles.sosModalCancelButton}
+                  >
+                    <Text style={styles.sosModalCancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         )}
-      </AnimatePresence>
     </>
   );
 };

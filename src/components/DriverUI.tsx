@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Image, 
+  Linking,
+  ScrollView
+} from 'react-native';
+import { 
   Phone, 
   MessageSquare, 
   Banknote, 
@@ -9,7 +18,7 @@ import {
   Wallet,
   TrendingUp,
   BatteryWarning
-} from 'lucide-react';
+} from 'lucide-react-native';
 import { DriverEarningsModal } from './DriverEarningsModal';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
@@ -55,7 +64,7 @@ export const DriverUI: React.FC<DriverUIProps> = ({
   handleAcceptRide,
   handleShareRide,
   onOpenWallet,
-  driverStatus = "approved", // Default to approved for backward compatibility if not passed
+  driverStatus = "approved",
   rejectionReason,
   driverData,
   onOpenVerification,
@@ -109,415 +118,512 @@ export const DriverUI: React.FC<DriverUIProps> = ({
 
   if (driverStatus !== "approved") {
     return (
-      <div className="flex flex-col gap-4 p-4 bg-white rounded-xl shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900">Cadastro de Motorista</h2>
+      <View style={styles.container}>
+        <Text style={styles.title}>Cadastro de Motorista</Text>
         
         {driverStatus === "pending" && (
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
-            <h3 className="font-bold text-yellow-800 mb-1">Em Análise</h3>
-            <p className="text-sm text-yellow-700">
+          <View style={styles.statusBoxPending}>
+            <Text style={styles.statusTitlePending}>Em Análise</Text>
+            <Text style={styles.statusTextPending}>
               Seus documentos estão sendo analisados pela nossa equipe. Você será notificado assim que for aprovado.
-            </p>
-          </div>
+            </Text>
+          </View>
         )}
 
         {driverStatus === "rejected" && (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
-            <h3 className="font-bold text-red-800 mb-1">Cadastro Recusado</h3>
-            <p className="text-sm text-red-700 mb-2">
+          <View style={styles.statusBoxRejected}>
+            <Text style={styles.statusTitleRejected}>Cadastro Recusado</Text>
+            <Text style={styles.statusTextRejected}>
               Infelizmente seu cadastro não foi aprovado. Por favor, verifique os dados e tente novamente.
-            </p>
+            </Text>
             {rejectionReason && (
-              <div className="bg-white/50 p-3 rounded-lg border border-red-100">
-                <p className="text-sm font-medium text-red-900">Motivo:</p>
-                <p className="text-sm text-red-800">{rejectionReason}</p>
-              </div>
+              <View style={styles.reasonBox}>
+                <Text style={styles.reasonLabel}>Motivo:</Text>
+                <Text style={styles.reasonText}>{rejectionReason}</Text>
+              </View>
             )}
-          </div>
+          </View>
         )}
 
-        {/* driverStatus === "none" || driverStatus === "rejected" */}
         {(driverStatus === "none" || driverStatus === "rejected") && (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-gray-600">
+          <View style={styles.actionContainer}>
+            <Text style={styles.actionText}>
               Para começar a receber corridas, você precisa completar o seu cadastro enviando os documentos necessários.
-            </p>
-            <button
-              onClick={() => {
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
                 triggerHaptic(ImpactStyle.Medium);
                 if (onOpenVerification) onOpenVerification();
               }}
-              className="w-full bg-black text-white font-bold py-4 rounded-xl hover:bg-gray-800 transition-colors mt-2"
+              style={styles.actionButton}
             >
-              Completar Cadastro
-            </button>
-          </div>
+              <Text style={styles.actionButtonText}>Completar Cadastro</Text>
+            </TouchableOpacity>
+          </View>
         )}
-      </div>
+      </View>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <ScrollView style={styles.container}>
       <DriverEarningsModal 
         isOpen={isEarningsModalOpen} 
         onClose={() => setIsEarningsModalOpen(false)} 
       />
       
-      {/* Debug Info (Only for testing) */}
-      <div className="text-[10px] text-gray-400 font-mono bg-gray-50 p-2 rounded border border-gray-100 mb-2">
-        DEBUG: Online={isOnline ? "SIM" : "NÃO"} | Rides={availableRides.length} | User={user?.uid?.substring(0, 5)}
-      </div>
+      <View style={styles.debugContainer}>
+        <Text style={styles.debugText}>
+          DEBUG: Online={isOnline ? "SIM" : "NÃO"} | Rides={availableRides.length} | User={user?.uid?.substring(0, 5)}
+        </Text>
+      </View>
 
       {batteryInfo && (batteryInfo.batteryLevel < 0.2 || !batteryInfo.isCharging) && (
-        <div className="bg-orange-50 border border-orange-200 p-3 rounded-xl flex items-center gap-3 mb-4">
-          <BatteryWarning className="w-6 h-6 text-orange-600" />
-          <div>
-            <p className="text-sm font-bold text-orange-900">
+        <View style={styles.batteryWarning}>
+          <BatteryWarning size={24} color="#c2410c" />
+          <View>
+            <Text style={styles.batteryText}>
               Bateria: {(batteryInfo.batteryLevel * 100).toFixed(0)}%
-            </p>
-            <p className="text-xs text-orange-700">
+            </Text>
+            <Text style={styles.batterySubText}>
               {batteryInfo.isCharging ? 'Carregando' : 'Conecte ao carregador'}
-            </p>
-          </div>
-        </div>
+            </Text>
+          </View>
+        </View>
       )}
 
-      <div className="flex items-center justify-between mb-4 px-2">
-        <h2 className="text-2xl font-bold text-[var(--system-label)] tracking-tight">Modo Motorista</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>Modo Motorista</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => {
               triggerHaptic(ImpactStyle.Medium);
               setShowHeatmap(!showHeatmap);
             }}
-            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 ${showHeatmap ? 'bg-[var(--system-red)] text-white shadow-sm' : 'bg-[var(--system-secondary-background)] text-[var(--system-label)] border border-[var(--system-separator)]'}`}
+            style={[styles.actionButtonSmall, showHeatmap ? styles.activeHeatmap : styles.inactiveHeatmap]}
           >
-            {showHeatmap ? 'Ocultar Calor' : 'Mapa de Calor'}
-          </button>
-          <button
-            onClick={() => {
+            <Text style={showHeatmap ? styles.activeHeatmapText : styles.inactiveHeatmapText}>
+              {showHeatmap ? 'Ocultar Calor' : 'Mapa de Calor'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
               triggerHaptic(ImpactStyle.Medium);
               toggleOnlineStatus();
             }}
-            className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 transition-all duration-300 shadow-sm ${
-              isOnline
-                ? "bg-[var(--system-green)] text-white"
-                : "bg-[var(--system-secondary-background)] text-[var(--system-secondary-label)] border border-[var(--system-separator)]"
-            }`}
+            style={[styles.onlineButton, isOnline ? styles.onlineButtonActive : styles.onlineButtonInactive]}
           >
-            <div
-              className={`w-2 h-2 rounded-full ${
-                isOnline ? "bg-white animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.8)]" : "bg-[var(--system-secondary-label)]"
-              }`}
-            ></div>
-            {isOnline ? "Online" : "Offline"}
-          </button>
-        </div>
-      </div>
+            <View style={[styles.statusIndicator, isOnline ? styles.statusIndicatorActive : styles.statusIndicatorInactive]} />
+            <Text style={isOnline ? styles.onlineButtonTextActive : styles.onlineButtonTextInactive}>
+              {isOnline ? "Online" : "Offline"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      {/* Driver Dashboard Stats */}
       {!activeDriverRide && isOnline && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-[var(--system-secondary-background)] p-4 rounded-2xl border border-[var(--system-separator)] shadow-sm">
-            <div className="flex items-center gap-2 text-[var(--system-secondary-label)] text-[10px] font-bold uppercase tracking-wider mb-1">
-              <TrendingUp className="w-3 h-3 text-[var(--system-blue)]" />
-              Ganhos Hoje
-            </div>
-            <div className="text-xl font-bold text-[var(--system-label)]">
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <TrendingUp size={12} color="#2563eb" />
+              <Text style={styles.statLabel}>Ganhos Hoje</Text>
+            </View>
+            <Text style={styles.statValue}>
               {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(dailyEarnings)}
-            </div>
-          </div>
-          <div className="bg-[var(--system-secondary-background)] p-4 rounded-2xl border border-[var(--system-separator)] shadow-sm">
-            <div className="flex items-center gap-2 text-[var(--system-secondary-label)] text-[10px] font-bold uppercase tracking-wider mb-1">
-              <Star className="w-3 h-3 text-[var(--system-orange)]" />
-              Avaliação
-            </div>
-            <div className="text-xl font-bold text-[var(--system-label)]">{driverStats.rating}</div>
-          </div>
-          <div className="bg-[var(--system-secondary-background)] p-4 rounded-2xl border border-[var(--system-separator)] shadow-sm">
-            <div className="flex items-center gap-2 text-[var(--system-secondary-label)] text-[10px] font-bold uppercase tracking-wider mb-1">
-              <Navigation className="w-3 h-3 text-[var(--system-green)]" />
-              Corridas
-            </div>
-            <div className="text-xl font-bold text-[var(--system-label)]">{driverStats.totalRides}</div>
-          </div>
-          <div className="bg-[var(--system-secondary-background)] p-4 rounded-2xl border border-[var(--system-separator)] shadow-sm">
-            <div className="flex items-center gap-2 text-[var(--system-secondary-label)] text-[10px] font-bold uppercase tracking-wider mb-1">
-              <Wallet className="w-3 h-3 text-[var(--system-blue)]" />
-              Aceitação
-            </div>
-            <div className="text-xl font-bold text-[var(--system-label)]">{driverStats.acceptanceRate}%</div>
-          </div>
-        </div>
+            </Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <Star size={12} color="#f59e0b" />
+              <Text style={styles.statLabel}>Avaliação</Text>
+            </View>
+            <Text style={styles.statValue}>{driverStats.rating}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <Navigation size={12} color="#10b981" />
+              <Text style={styles.statLabel}>Corridas</Text>
+            </View>
+            <Text style={styles.statValue}>{driverStats.totalRides}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <Wallet size={12} color="#2563eb" />
+              <Text style={styles.statLabel}>Aceitação</Text>
+            </View>
+            <Text style={styles.statValue}>{driverStats.acceptanceRate}%</Text>
+          </View>
+        </View>
       )}
 
       {activeDriverRide ? (
-        <div className="flex flex-col gap-4">
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
-            <h3 className="font-bold text-blue-900 mb-1">Corrida em Andamento</h3>
-            <p className="text-sm text-blue-700 mb-3">
+        <View style={styles.rideContainer}>
+          <View style={styles.rideCard}>
+            <Text style={styles.rideTitle}>Corrida em Andamento</Text>
+            <Text style={styles.rideStatus}>
               {activeDriverRide.status === "accepted" && "Vá até o passageiro"}
               {activeDriverRide.status === "arrived" && "Aguardando o passageiro"}
               {activeDriverRide.status === "in_progress" && "Levando ao destino"}
-            </p>
+            </Text>
 
-            {/* Botão de Emergência */}
-            <button
-              onClick={() => {
+            <TouchableOpacity
+              onPress={() => {
                 triggerHaptic(ImpactStyle.Heavy);
-                window.location.href = 'tel:190';
+                Linking.openURL('tel:190');
               }}
-              className="w-full flex items-center justify-center gap-2 bg-red-600 text-white font-bold py-2 rounded-xl mb-4 hover:bg-red-700 transition-colors"
+              style={styles.emergencyButton}
             >
-              <ShieldAlert className="w-5 h-5" />
-              Emergência
-            </button>
+              <ShieldAlert size={20} color="#ffffff" />
+              <Text style={styles.emergencyButtonText}>Emergência</Text>
+            </TouchableOpacity>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm mb-4">
-              <div className="flex items-center gap-4 mb-4">
-                <img
-                  src="https://i.pravatar.cc/150?img=32"
-                  alt="Passenger"
-                  className="w-12 h-12 rounded-full object-cover"
+            <View style={styles.passengerCard}>
+              <View style={styles.passengerInfo}>
+                <Image
+                  source={{ uri: "https://i.pravatar.cc/150?img=32" }}
+                  style={styles.passengerAvatar}
                 />
-                <div className="flex-1">
-                  <h4 className="font-bold text-gray-900">Passageiro</h4>
-                  <p className="text-sm text-gray-500">Destino: {activeDriverRide.destName}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-blue-600">
-                    <Phone className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => {
+                <View style={styles.passengerDetails}>
+                  <Text style={styles.passengerName}>Passageiro</Text>
+                  <Text style={styles.passengerDestination}>Destino: {activeDriverRide.destName}</Text>
+                </View>
+                <View style={styles.passengerActions}>
+                  <TouchableOpacity style={styles.iconButton}>
+                    <Phone size={20} color="#2563eb" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
                       triggerHaptic();
                       setIsChatOpen(true);
                     }}
-                    className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-blue-600 relative"
+                    style={styles.iconButton}
                   >
-                    <MessageSquare className="w-5 h-5" />
+                    <MessageSquare size={20} color="#2563eb" />
                     {chatMessages.length > 0 &&
                       chatMessages[chatMessages.length - 1].senderId !== user?.uid && (
-                        <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+                        <View style={styles.chatBadge} />
                       )}
-                  </button>
-                  <button
-                    onClick={() => {
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
                       triggerHaptic();
                       handleShareRide(activeDriverRide.id);
                     }}
-                    className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-blue-600"
-                    title="Compartilhar Viagem"
+                    style={styles.iconButton}
                   >
-                    <span className="font-bold text-xs">Compartilhar</span>
-                  </button>
-                </div>
-              </div>
+                    <Text style={styles.shareText}>Compartilhar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-              {/* Navigation Buttons */}
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => {
+              <View style={styles.navButtons}>
+                <TouchableOpacity
+                  onPress={() => {
                     const lat = activeDriverRide.status === 'accepted' ? activeDriverRide.origin.lat : activeDriverRide.destination.lat;
                     const lng = activeDriverRide.status === 'accepted' ? activeDriverRide.origin.lng : activeDriverRide.destination.lng;
-                    window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_system');
+                    Linking.openURL(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`);
                   }}
-                  className="flex-1 bg-blue-50 text-blue-700 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border border-blue-100 hover:bg-blue-100 transition-colors"
+                  style={styles.navButtonWaze}
                 >
-                  <Navigation className="w-4 h-4" />
-                  Waze
-                </button>
-                <button
-                  onClick={() => {
+                  <Navigation size={16} color="#1d4ed8" />
+                  <Text style={styles.navButtonTextWaze}>Waze</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
                     const lat = activeDriverRide.status === 'accepted' ? activeDriverRide.origin.lat : activeDriverRide.destination.lat;
                     const lng = activeDriverRide.status === 'accepted' ? activeDriverRide.origin.lng : activeDriverRide.destination.lng;
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_system');
+                    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
                   }}
-                  className="flex-1 bg-green-50 text-green-700 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border border-green-100 hover:bg-green-100 transition-colors"
+                  style={styles.navButtonMaps}
                 >
-                  <Navigation className="w-4 h-4" />
-                  Google Maps
-                </button>
-              </div>
+                  <Navigation size={16} color="#15803d" />
+                  <Text style={styles.navButtonTextMaps}>Google Maps</Text>
+                </TouchableOpacity>
+              </View>
 
               {activeDriverRide.status === "accepted" && (
-                <button
-                  onClick={() => {
+                <TouchableOpacity
+                  onPress={() => {
                     triggerHaptic(ImpactStyle.Medium);
                     handleUpdateRideStatus(activeDriverRide.id, "arrived");
                   }}
-                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-md text-lg"
+                  style={styles.actionButtonPrimary}
                 >
-                  Cheguei ao Local
-                </button>
+                  <Text style={styles.actionButtonPrimaryText}>Cheguei ao Local</Text>
+                </TouchableOpacity>
               )}
 
               {activeDriverRide.status === "arrived" && (
-                <button
-                  onClick={() => {
+                <TouchableOpacity
+                  onPress={() => {
                     triggerHaptic(ImpactStyle.Heavy);
                     handleUpdateRideStatus(activeDriverRide.id, "in_progress");
                   }}
-                  className="w-full bg-green-600 text-white font-bold py-4 rounded-xl hover:bg-green-700 transition-colors shadow-md text-lg"
+                  style={styles.actionButtonPrimary}
                 >
-                  Iniciar Corrida
-                </button>
+                  <Text style={styles.actionButtonPrimaryText}>Iniciar Corrida</Text>
+                </TouchableOpacity>
               )}
 
               {activeDriverRide.status === "in_progress" && (
-                <button
-                  onClick={() => {
+                <TouchableOpacity
+                  onPress={() => {
                     triggerHaptic(ImpactStyle.Heavy);
                     handleCompleteRide(activeDriverRide.id);
                   }}
-                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-md text-lg"
+                  style={styles.actionButtonPrimary}
                 >
-                  Finalizar Corrida
-                </button>
+                  <Text style={styles.actionButtonPrimaryText}>Finalizar Corrida</Text>
+                </TouchableOpacity>
               )}
 
-              <button
-                onClick={() => {
+              <TouchableOpacity
+                onPress={() => {
                   triggerHaptic(ImpactStyle.Medium);
                   handleDriverCancel(activeDriverRide.id);
                 }}
-                className="w-full mt-4 text-red-600 font-semibold py-2 rounded-xl hover:bg-red-50 transition-colors"
+                style={styles.cancelButton}
               >
-                Cancelar Corrida
-              </button>
-            </div>
-          </div>
-        </div>
+                <Text style={styles.cancelButtonText}>Cancelar Corrida</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       ) : (
-        <div className="flex flex-col gap-3">
-          {/* Painel de Ganhos */}
-          <div className="bg-[var(--system-green)] rounded-2xl p-4 shadow-sm mb-2 flex items-center justify-between cursor-pointer active:opacity-70 transition-all" onClick={() => {
+        <View style={styles.dashboardContainer}>
+          <TouchableOpacity style={styles.earningsPanel} onPress={() => {
             triggerHaptic();
             setIsEarningsModalOpen(true);
           }}>
-            <div>
-              <p className="text-xs text-white/80 font-bold uppercase tracking-wider">Ganhos de Hoje</p>
-              <p className="text-2xl font-bold text-white">
+            <View>
+              <Text style={styles.earningsLabel}>Ganhos de Hoje</Text>
+              <Text style={styles.earningsValue}>
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
                 }).format(dailyEarnings)}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
-              <Banknote className="w-6 h-6 text-white" />
-            </div>
-          </div>
+              </Text>
+            </View>
+            <View style={styles.earningsIcon}>
+              <Banknote size={24} color="#ffffff" />
+            </View>
+          </TouchableOpacity>
 
-          {/* Atalhos Rápidos */}
-          <div className="grid grid-cols-2 gap-3 mb-2">
-            <button
-              onClick={() => {
+          <View style={styles.shortcutsGrid}>
+            <TouchableOpacity
+              onPress={() => {
                 triggerHaptic();
                 onOpenWallet();
               }}
-              className="bg-[var(--system-secondary-background)] p-4 rounded-2xl border border-[var(--system-separator)] shadow-sm flex items-center gap-3 active:bg-[var(--system-quaternary-background)] transition-colors"
+              style={styles.shortcutButton}
             >
-              <div className="bg-[var(--system-blue)]/10 p-2 rounded-xl">
-                <Wallet className="w-5 h-5 text-[var(--system-blue)]" />
-              </div>
-              <span className="font-bold text-[var(--system-label)] text-sm">Sacar Saldo</span>
-            </button>
-            <button
-              onClick={() => {
+              <View style={styles.shortcutIconWrapper}>
+                <Wallet size={20} color="#2563eb" />
+              </View>
+              <Text style={styles.shortcutText}>Sacar Saldo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
                 triggerHaptic();
                 setIsEarningsModalOpen(true);
               }}
-              className="bg-[var(--system-secondary-background)] p-4 rounded-2xl border border-[var(--system-separator)] shadow-sm flex items-center gap-3 active:bg-[var(--system-quaternary-background)] transition-colors"
+              style={styles.shortcutButton}
             >
-              <div className="bg-purple-500/10 p-2 rounded-xl">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-              </div>
-              <span className="font-bold text-[var(--system-label)] text-sm">Ver Ganhos</span>
-            </button>
-          </div>
+              <View style={styles.shortcutIconWrapperPurple}>
+                <TrendingUp size={20} color="#a855f7" />
+              </View>
+              <Text style={styles.shortcutText}>Ver Ganhos</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Painel do Veículo */}
           {driverData?.vehicle && (
-            <div className="bg-[var(--system-secondary-background)] rounded-2xl p-4 border border-[var(--system-separator)] mb-2">
-              <p className="text-[10px] text-[var(--system-secondary-label)] uppercase font-bold tracking-wider mb-2">Seu Veículo</p>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-[var(--system-label)]">{driverData.vehicle.color} {driverData.vehicle.model}</p>
-                  <p className="text-sm text-[var(--system-secondary-label)]">{driverData.vehicle.year} • {driverData.vehicle.plate}</p>
-                </div>
-                <div className="bg-[var(--system-background)] p-2 rounded-xl border border-[var(--system-separator)] shadow-sm">
-                  <Star className="w-5 h-5 text-[var(--system-orange)] fill-[var(--system-orange)]" />
-                </div>
-              </div>
-            </div>
+            <View style={styles.vehiclePanel}>
+              <Text style={styles.vehicleLabel}>Seu Veículo</Text>
+              <View style={styles.vehicleInfo}>
+                <View>
+                  <Text style={styles.vehicleName}>{driverData.vehicle.color} {driverData.vehicle.model}</Text>
+                  <Text style={styles.vehicleDetails}>{driverData.vehicle.year} • {driverData.vehicle.plate}</Text>
+                </View>
+                <View style={styles.vehicleRating}>
+                  <Star size={20} color="#f59e0b" />
+                </View>
+              </View>
+            </View>
           )}
 
-          <h2 className="text-sm font-bold text-[var(--system-secondary-label)] uppercase tracking-wider mb-2 px-1">
+          <Text style={styles.ridesTitle}>
             Pedidos Disponíveis ({availableRides.length})
-          </h2>
+          </Text>
           {!isOnline ? (
-            <div className="text-center py-10 bg-[var(--system-secondary-background)] rounded-2xl border border-dashed border-[var(--system-separator)]">
-              <p className="text-[var(--system-label)] font-bold">Você está offline</p>
-              <p className="text-xs text-[var(--system-secondary-label)] mt-1">Fique online para receber pedidos</p>
-              <button
-                onClick={() => {
+            <View style={styles.offlineContainer}>
+              <Text style={styles.offlineText}>Você está offline</Text>
+              <Text style={styles.offlineSubText}>Fique online para receber pedidos</Text>
+              <TouchableOpacity
+                onPress={() => {
                   triggerHaptic(ImpactStyle.Medium);
                   toggleOnlineStatus();
                 }}
-                className="mt-5 bg-[var(--system-blue)] text-white px-8 py-3 rounded-full text-sm font-bold shadow-md active:scale-95 transition-transform"
+                style={styles.goOnlineButton}
               >
-                Ficar Online
-              </button>
-            </div>
+                <Text style={styles.goOnlineButtonText}>Ficar Online</Text>
+              </TouchableOpacity>
+            </View>
           ) : availableRides.length > 0 ? (
             availableRides.map((ride) => (
-              <div
+              <View
                 key={ride.id}
-                className="bg-[var(--system-secondary-background)] border border-[var(--system-separator)] p-4 rounded-2xl flex flex-col gap-4 shadow-sm"
+                style={styles.rideItem}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="text-[10px] text-[var(--system-secondary-label)] uppercase font-bold tracking-wider mb-1">Destino</p>
-                    <p className="font-bold text-[var(--system-label)] text-lg leading-tight">{ride.destName}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="bg-[var(--system-blue)]/10 text-[var(--system-blue)] text-xs font-bold px-2 py-1 rounded-md">
-                        {ride.distance?.toFixed(1)} km
-                      </span>
-                      <span className="bg-[var(--system-green)]/10 text-[var(--system-green)] text-xs font-bold px-2 py-1 rounded-md uppercase">
-                        {ride.paymentMethod}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-[var(--system-green)]">
+                <View style={styles.rideItemHeader}>
+                  <View style={styles.rideItemInfo}>
+                    <Text style={styles.rideItemLabel}>Destino</Text>
+                    <Text style={styles.rideItemDestination}>{ride.destName}</Text>
+                    <View style={styles.rideItemTags}>
+                      <View style={styles.rideItemTagBlue}>
+                        <Text style={styles.rideItemTagTextBlue}>{ride.distance?.toFixed(1)} km</Text>
+                      </View>
+                      <View style={styles.rideItemTagGreen}>
+                        <Text style={styles.rideItemTagTextGreen}>{ride.paymentMethod}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.rideItemPriceContainer}>
+                    <Text style={styles.rideItemPrice}>
                       {new Intl.NumberFormat("pt-BR", {
                         style: "currency",
                         currency: "BRL",
                       }).format(ride.price)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
                     triggerHaptic(ImpactStyle.Heavy);
                     handleAcceptRide(ride.id);
                   }}
-                  className="w-full bg-[var(--system-label)] text-[var(--system-background)] font-bold py-4 rounded-xl active:scale-[0.98] transition-all shadow-md"
+                  style={styles.acceptRideButton}
                 >
-                  Aceitar Corrida
-                </button>
-              </div>
+                  <Text style={styles.acceptRideButtonText}>Aceitar Corrida</Text>
+                </TouchableOpacity>
+              </View>
             ))
           ) : (
-            <div className="text-center py-12 bg-[var(--system-secondary-background)] rounded-2xl border border-[var(--system-separator)]">
-              <div className="w-10 h-10 border-4 border-[var(--system-separator)] border-t-[var(--system-blue)] rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-[var(--system-secondary-label)] font-medium">Procurando pedidos...</p>
-            </div>
+            <View style={styles.noRidesContainer}>
+              <View style={styles.spinner} />
+              <Text style={styles.noRidesText}>Procurando pedidos...</Text>
+            </View>
           )}
-        </div>
+        </View>
       )}
-    </div>
+    </ScrollView>
   );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
+  statusBoxPending: { backgroundColor: '#fefce8', borderColor: '#fde68a', padding: 16, borderRadius: 12 },
+  statusTitlePending: { fontWeight: 'bold', color: '#854d0e', marginBottom: 4 },
+  statusTextPending: { fontSize: 14, color: '#a16207' },
+  statusBoxRejected: { backgroundColor: '#fef2f2', borderColor: '#fecaca', padding: 16, borderRadius: 12 },
+  statusTitleRejected: { fontWeight: 'bold', color: '#991b1b', marginBottom: 4 },
+  statusTextRejected: { fontSize: 14, color: '#b91c1c', marginBottom: 8 },
+  reasonBox: { backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, borderRadius: 8, borderColor: '#fee2e2' },
+  reasonLabel: { fontSize: 14, fontWeight: '500', color: '#991b1b' },
+  reasonText: { fontSize: 14, color: '#991b1b' },
+  actionContainer: { gap: 16 },
+  actionText: { fontSize: 14, color: '#4b5563' },
+  actionButton: { width: '100%', backgroundColor: '#000000', padding: 16, borderRadius: 12, alignItems: 'center' },
+  actionButtonText: { color: '#ffffff', fontWeight: 'bold' },
+  debugContainer: { padding: 8, backgroundColor: '#f9fafb', borderRadius: 4, borderColor: '#f3f4f6', marginBottom: 8 },
+  debugText: { fontSize: 10, color: '#9ca3af', fontFamily: 'monospace' },
+  batteryWarning: { backgroundColor: '#fff7ed', borderColor: '#fed7aa', padding: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  batteryText: { fontSize: 14, fontWeight: 'bold', color: '#7c2d12' },
+  batterySubText: { fontSize: 12, color: '#9a3412' },
+  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 8 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  actionButtonSmall: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  activeHeatmap: { backgroundColor: '#ef4444', borderColor: '#ef4444' },
+  inactiveHeatmap: { backgroundColor: '#f3f4f6', borderColor: '#e5e7eb' },
+  activeHeatmapText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  inactiveHeatmapText: { color: '#111827', fontSize: 12, fontWeight: '600' },
+  onlineButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  onlineButtonActive: { backgroundColor: '#22c55e' },
+  onlineButtonInactive: { backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb' },
+  statusIndicator: { width: 8, height: 8, borderRadius: 4 },
+  statusIndicatorActive: { backgroundColor: '#ffffff' },
+  statusIndicatorInactive: { backgroundColor: '#6b7280' },
+  onlineButtonTextActive: { color: '#ffffff', fontWeight: 'bold' },
+  onlineButtonTextInactive: { color: '#6b7280', fontWeight: 'bold' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
+  statCard: { width: '47%', backgroundColor: '#f9fafb', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb' },
+  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  statLabel: { fontSize: 10, fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase' },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+  rideContainer: { gap: 16 },
+  rideCard: { backgroundColor: '#eff6ff', borderColor: '#dbeafe', padding: 16, borderRadius: 12 },
+  rideTitle: { fontWeight: 'bold', color: '#1e3a8a', marginBottom: 4 },
+  rideStatus: { fontSize: 14, color: '#1e40af', marginBottom: 12 },
+  emergencyButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', padding: 8, borderRadius: 12, marginBottom: 16 },
+  emergencyButtonText: { color: '#ffffff', fontWeight: 'bold' },
+  passengerCard: { backgroundColor: '#ffffff', padding: 16, borderRadius: 12, marginBottom: 16 },
+  passengerInfo: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
+  passengerAvatar: { width: 48, height: 48, borderRadius: 24 },
+  passengerDetails: { flex: 1 },
+  passengerName: { fontWeight: 'bold', color: '#111827' },
+  passengerDestination: { fontSize: 14, color: '#6b7280' },
+  passengerActions: { flexDirection: 'row', gap: 8 },
+  iconButton: { width: 40, height: 40, backgroundColor: '#f3f4f6', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  chatBadge: { position: 'absolute', top: 0, right: 0, width: 12, height: 12, backgroundColor: '#ef4444', borderRadius: 6, borderWidth: 2, borderColor: '#ffffff' },
+  shareText: { fontSize: 10, fontWeight: 'bold', color: '#2563eb' },
+  navButtons: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  navButtonWaze: { flex: 1, backgroundColor: '#eff6ff', padding: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#dbeafe' },
+  navButtonTextWaze: { fontWeight: 'bold', color: '#1d4ed8', fontSize: 12 },
+  navButtonMaps: { flex: 1, backgroundColor: '#f0fdf4', padding: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#dcfce7' },
+  navButtonTextMaps: { fontWeight: 'bold', color: '#15803d', fontSize: 12 },
+  actionButtonPrimary: { width: '100%', backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
+  actionButtonPrimaryText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
+  cancelButton: { width: '100%', padding: 8, alignItems: 'center' },
+  cancelButtonText: { color: '#dc2626', fontWeight: '600' },
+  dashboardContainer: { gap: 12 },
+  earningsPanel: { backgroundColor: '#22c55e', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  earningsLabel: { fontSize: 12, color: '#ffffff', fontWeight: 'bold', textTransform: 'uppercase' },
+  earningsValue: { fontSize: 24, fontWeight: 'bold', color: '#ffffff' },
+  earningsIcon: { width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  shortcutsGrid: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  shortcutButton: { flex: 1, backgroundColor: '#f9fafb', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  shortcutIconWrapper: { backgroundColor: 'rgba(37,99,235,0.1)', padding: 8, borderRadius: 12 },
+  shortcutIconWrapperPurple: { backgroundColor: 'rgba(168,85,247,0.1)', padding: 8, borderRadius: 12 },
+  shortcutText: { fontWeight: 'bold', color: '#111827', fontSize: 14 },
+  vehiclePanel: { backgroundColor: '#f9fafb', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
+  vehicleLabel: { fontSize: 10, color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8 },
+  vehicleInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  vehicleName: { fontWeight: 'bold', color: '#111827' },
+  vehicleDetails: { fontSize: 14, color: '#6b7280' },
+  vehicleRating: { backgroundColor: '#ffffff', padding: 8, borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb' },
+  ridesTitle: { fontSize: 12, fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: 8, paddingHorizontal: 4 },
+  offlineContainer: { alignItems: 'center', paddingVertical: 40, backgroundColor: '#f9fafb', borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb' },
+  offlineText: { fontWeight: 'bold', color: '#111827' },
+  offlineSubText: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+  goOnlineButton: { marginTop: 20, backgroundColor: '#2563eb', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 24 },
+  goOnlineButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 },
+  rideItem: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', padding: 16, borderRadius: 16, gap: 16, marginBottom: 12 },
+  rideItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  rideItemInfo: { flex: 1 },
+  rideItemLabel: { fontSize: 10, fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: 4 },
+  rideItemDestination: { fontWeight: 'bold', color: '#111827', fontSize: 16 },
+  rideItemTags: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  rideItemTagBlue: { backgroundColor: 'rgba(37,99,235,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  rideItemTagTextBlue: { color: '#2563eb', fontSize: 10, fontWeight: 'bold' },
+  rideItemTagGreen: { backgroundColor: 'rgba(34,197,94,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  rideItemTagTextGreen: { color: '#16a34a', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  rideItemPriceContainer: { alignItems: 'flex-end' },
+  rideItemPrice: { fontSize: 18, fontWeight: 'bold', color: '#16a34a' },
+  acceptRideButton: { width: '100%', backgroundColor: '#111827', padding: 16, borderRadius: 12, alignItems: 'center' },
+  acceptRideButtonText: { color: '#ffffff', fontWeight: 'bold' },
+  noRidesContainer: { alignItems: 'center', paddingVertical: 48, backgroundColor: '#f9fafb', borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb' },
+  spinner: { width: 40, height: 40, borderWidth: 4, borderColor: '#e5e7eb', borderTopColor: '#2563eb', borderRadius: 20, marginBottom: 16 },
+  noRidesText: { color: '#6b7280', fontWeight: '500' }
+});
 };

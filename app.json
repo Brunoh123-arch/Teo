@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "RideFlow",
+    "slug": "rideflow",
+    "version": "1.0.0",
+    "scheme": "rideflow",
+    "web": {
+      "bundler": "metro"
+    },
+    "ios": {
+      "bundleIdentifier": "com.rideflow.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.rideflow.app"
+    }
+  }
+}

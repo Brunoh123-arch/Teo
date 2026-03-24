@@ -76,11 +76,11 @@ export const rideService = {
     return response.json();
   },
 
-  rateRide: async (rideId: string, rating: number, tip: number = 0) => {
+  rateRide: async (rideId: string, rating: number, tip: number = 0, comment: string = "") => {
     const response = await fetch(`${API_BASE}/api/v1/rides/${rideId}/rate`, {
       method: "POST",
       headers: await getAuthHeaders(),
-      body: JSON.stringify({ rating, tip }),
+      body: JSON.stringify({ rating, tip, comment }),
     });
     if (!response.ok) throw new Error("Failed to rate ride");
     return response.json();

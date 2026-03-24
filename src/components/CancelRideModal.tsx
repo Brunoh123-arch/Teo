@@ -1,97 +1,92 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, AlertTriangle } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { Capacitor } from '@capacitor/core';
-import { toast } from 'sonner';
+import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { X, AlertTriangle } from 'lucide-react-native';
 
 export const CancelRideModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, onClose: () => void, onConfirm: (reason: string) => void }) => {
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Haptics.impact({ style });
-      } catch (e) {
-        console.warn('Haptics not available', e);
-      }
-    }
-  };
-
   const handleConfirm = () => {
     if (!reason) {
-      toast.error("Por favor, selecione um motivo.");
       return;
     }
     setSubmitting(true);
-    triggerHaptic(ImpactStyle.Medium);
     onConfirm(reason);
     onClose();
     setSubmitting(false);
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[2000] flex flex-col justify-end">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="bg-[var(--system-secondary-background)]/90 backdrop-blur-2xl w-full rounded-t-3xl relative z-10 p-6 shadow-2xl border-t border-white/50"
-          >
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-4" />
-              <div className="flex justify-between items-center w-full">
-                <h3 className="font-bold text-lg flex items-center gap-2 text-red-600">
-                  <AlertTriangle className="w-5 h-5" />
-                  Cancelar Viagem
-                </h3>
-                <button
-                  onClick={() => {
-                    triggerHaptic();
-                    onClose();
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-6 h-6 text-[var(--system-secondary-label)]" />
-                </button>
-              </div>
-            </div>
+    <Modal
+      visible={isOpen}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <TouchableOpacity style={styles.backdrop} onPress={onClose} />
+        <View style={styles.modalContent}>
+          <View style={styles.handle} />
+          <View style={styles.header}>
+            <View style={styles.headerTitleContainer}>
+              <AlertTriangle size={20} color="#dc2626" />
+              <Text style={styles.headerTitle}>Cancelar Viagem</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <X size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
 
-            <p className="text-gray-600 mb-4">Tem certeza que deseja cancelar esta viagem? Isso pode gerar taxas de cancelamento.</p>
+          <Text style={styles.description}>Tem certeza que deseja cancelar esta viagem? Isso pode gerar taxas de cancelamento.</Text>
 
-            <div className="space-y-2 mb-6">
-              {['Motorista demorou', 'Mudei de ideia', 'Endereço errado', 'Outro'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setReason(r)}
-                  className={`w-full p-4 rounded-xl border-2 text-left font-bold transition-colors ${reason === r ? 'border-red-600 bg-red-50 text-red-700' : 'border-gray-200 hover:border-gray-300'}`}
-                >
+          <View style={styles.reasonsContainer}>
+            {['Motorista demorou', 'Mudei de ideia', 'Endereço errado', 'Outro'].map((r) => (
+              <TouchableOpacity
+                key={r}
+                onPress={() => setReason(r)}
+                style={[
+                  styles.reasonButton,
+                  reason === r ? styles.selectedReason : styles.unselectedReason
+                ]}
+              >
+                <Text style={[styles.reasonText, reason === r ? styles.selectedReasonText : styles.unselectedReasonText]}>
                   {r}
-                </button>
-              ))}
-            </div>
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-            <button
-              onClick={handleConfirm}
-              disabled={submitting || !reason}
-              className="w-full bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50"
-            >
-              Confirmar Cancelamento
-            </button>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+          <TouchableOpacity
+            onPress={handleConfirm}
+            disabled={submitting || !reason}
+            style={[styles.confirmButton, (submitting || !reason) && styles.disabledButton]}
+          >
+            <Text style={styles.confirmButtonText}>Confirmar Cancelamento</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  modalContent: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 },
+  handle: { width: 40, height: 6, backgroundColor: '#d1d5db', borderRadius: 3, alignSelf: 'center', marginBottom: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  headerTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#dc2626' },
+  closeButton: { padding: 8 },
+  description: { fontSize: 16, color: '#4b5563', marginBottom: 24 },
+  reasonsContainer: { gap: 12, marginBottom: 24 },
+  reasonButton: { padding: 16, borderRadius: 12, borderWidth: 2 },
+  unselectedReason: { borderColor: '#e5e7eb', backgroundColor: '#ffffff' },
+  selectedReason: { borderColor: '#dc2626', backgroundColor: '#fef2f2' },
+  reasonText: { fontWeight: 'bold' },
+  unselectedReasonText: { color: '#111827' },
+  selectedReasonText: { color: '#b91c1c' },
+  confirmButton: { width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#dc2626' },
+  disabledButton: { opacity: 0.5 },
+  confirmButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 }
+});

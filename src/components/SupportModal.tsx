@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, MessageSquare, Send, Clock, HelpCircle, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, TextInput, ScrollView, Alert, Platform } from 'react-native';
+import { X, MessageSquare, Send, Clock, HelpCircle, MessageCircle, Plus } from 'lucide-react';
 import { rideService } from '../services/rideService';
 import { auth } from '../firebase';
 import { ChatModal } from './ChatModal';
 import { socketService } from '../services/socketService';
-import { toast } from 'sonner';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { Capacitor } from '@capacitor/core';
+import { impactAsync, ImpactFeedbackStyle } from 'expo-haptics';
 
 export const SupportModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -24,6 +22,28 @@ export const SupportModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
 
+  const slideAnim = useRef(new Animated.Value(500)).current;
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchTickets();
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 500,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isOpen]);
+
+  const triggerHaptic = async (style: ImpactFeedbackStyle = ImpactFeedbackStyle.Light) => {
+    await impactAsync(style);
+  };
+
   const handleOpenTicketChat = async (ticketId: string) => {
     setActiveTicketId(ticketId);
     setIsChatOpen(true);
@@ -32,7 +52,7 @@ export const SupportModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
       const messages = await rideService.getSupportTicketMessages(ticketId);
       setChatMessages(messages);
     } catch (error) {
-      toast.error("Erro ao carregar mensagens");
+      Alert.alert("Erro", "Erro ao carregar mensagens");
     }
   };
 
@@ -52,8 +72,7 @@ export const SupportModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
     }
   }, [isChatOpen, activeTicketId]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeTicketId) return;
 
     const text = newMessage;
@@ -62,18 +81,8 @@ export const SupportModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
       const sentMsg = await rideService.sendSupportTicketMessage(activeTicketId, text);
       setChatMessages(prev => [...prev, sentMsg]);
     } catch (error) {
-      toast.error("Erro ao enviar mensagem");
+      Alert.alert("Erro", "Erro ao enviar mensagem");
       setNewMessage(text);
-    }
-  };
-
-  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Haptics.impact({ style });
-      } catch (e) {
-        console.warn('Haptics not available', e);
-      }
     }
   };
 
@@ -88,207 +97,385 @@ export const SupportModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchTickets();
-    }
-  }, [isOpen]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (subject.length < 3 || message.length < 10) {
-      toast.error("Por favor, preencha o assunto e a mensagem detalhadamente.");
+      Alert.alert("Erro", "Por favor, preencha o assunto e a mensagem detalhadamente.");
       return;
     }
 
     setSubmitting(true);
-    triggerHaptic(ImpactStyle.Medium);
+    triggerHaptic(ImpactFeedbackStyle.Medium);
     try {
       await rideService.createSupportTicket({ subject, message, category });
-      toast.success("Ticket de suporte criado com sucesso!");
+      Alert.alert("Sucesso", "Ticket de suporte criado com sucesso!");
       setShowNewTicket(false);
       setSubject('');
       setMessage('');
       fetchTickets();
     } catch (error) {
-      toast.error("Erro ao criar ticket de suporte.");
+      Alert.alert("Erro", "Erro ao criar ticket de suporte.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[2000] flex flex-col justify-end">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="bg-[var(--system-secondary-background)]/90 backdrop-blur-2xl w-full rounded-t-3xl relative z-10 max-h-[90vh] flex flex-col shadow-2xl border-t border-white/50"
-          >
-            <div className="p-4 border-b border-gray-100 flex flex-col items-center bg-white/50 sticky top-0 z-20">
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-4" />
-              <div className="flex justify-between items-center w-full">
-                <h3 className="font-bold text-lg text-[var(--system-label)]">Suporte e Ajuda</h3>
-                <button
-                  onClick={() => {
-                    triggerHaptic();
-                    onClose();
+    <View style={StyleSheet.absoluteFill}>
+      <TouchableOpacity 
+        style={styles.overlay} 
+        onPress={onClose}
+      />
+      <Animated.View style={[styles.modal, { transform: [{ translateY: slideAnim }] }]}>
+        <View style={styles.header}>
+          <View style={styles.handle} />
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Suporte e Ajuda</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <X size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+          {showNewTicket ? (
+            <View style={styles.formContainer}>
+              <TouchableOpacity 
+                onPress={() => setShowNewTicket(false)}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>← Voltar</Text>
+              </TouchableOpacity>
+              <Text style={styles.formTitle}>Novo Chamado</Text>
+
+              <Text style={styles.label}>CATEGORIA</Text>
+              <View style={styles.pickerContainer}>
+                <TouchableOpacity 
+                  style={styles.pickerButton}
+                  onPress={() => {
+                    // Simple toggle for demo purposes, or could open a modal
+                    const categories = ['ride', 'payment', 'account', 'other'] as const;
+                    const nextIndex = (categories.indexOf(category) + 1) % categories.length;
+                    setCategory(categories[nextIndex]);
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <X className="w-6 h-6 text-[var(--system-secondary-label)]" />
-                </button>
-              </div>
-            </div>
+                  <Text style={styles.pickerButtonText}>
+                    {category === 'ride' && "Problema com Corrida"}
+                    {category === 'payment' && "Pagamento / Cobrança"}
+                    {category === 'account' && "Minha Conta"}
+                    {category === 'other' && "Outros Assuntos"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              {showNewTicket ? (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <button 
-                      type="button"
-                      onClick={() => setShowNewTicket(false)}
-                      className="text-blue-600 font-bold text-sm"
-                    >
-                      ← Voltar
-                    </button>
-                    <h4 className="font-bold text-gray-900">Novo Chamado</h4>
-                  </div>
+              <Text style={styles.label}>ASSUNTO</Text>
+              <TextInput 
+                value={subject}
+                onChangeText={setSubject}
+                placeholder="Resumo do problema"
+                style={styles.input}
+              />
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Categoria</label>
-                    <select 
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value as any)}
-                      className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none bg-white"
-                    >
-                      <option value="ride">Problema com Corrida</option>
-                      <option value="payment">Pagamento / Cobrança</option>
-                      <option value="account">Minha Conta</option>
-                      <option value="other">Outros Assuntos</option>
-                    </select>
-                  </div>
+              <Text style={styles.label}>MENSAGEM</Text>
+              <TextInput 
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Descreva o que aconteceu em detalhes..."
+                multiline
+                numberOfLines={4}
+                style={[styles.input, styles.textArea]}
+              />
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Assunto</label>
-                    <input 
-                      type="text"
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      placeholder="Resumo do problema"
-                      className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none"
-                    />
-                  </div>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={submitting}
+                style={styles.submitButton}
+              >
+                <Text style={styles.submitButtonText}>{submitting ? 'Enviando...' : 'Enviar Mensagem'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.listContainer}>
+              <TouchableOpacity
+                onPress={() => { triggerHaptic(); setShowNewTicket(true); }}
+                style={styles.newTicketButton}
+              >
+                <View style={styles.newTicketButtonContent}>
+                  <HelpCircle size={24} color="#1d4ed8" />
+                  <Text style={styles.newTicketButtonText}>Precisa de ajuda?</Text>
+                </View>
+                <Plus size={20} color="#1d4ed8" />
+              </TouchableOpacity>
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Mensagem</label>
-                    <textarea 
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Descreva o que aconteceu em detalhes..."
-                      rows={4}
-                      className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none resize-none"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    {submitting ? 'Enviando...' : 'Enviar Mensagem'}
-                  </button>
-                </form>
+              <Text style={styles.sectionTitle}>
+                <Clock size={20} color="#6b7280" /> Seus Chamados
+              </Text>
+              
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <Text>Carregando...</Text>
+                </View>
+              ) : tickets.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <MessageSquare size={48} color="#d1d5db" />
+                  <Text style={styles.emptyText}>Você ainda não tem chamados abertos.</Text>
+                </View>
               ) : (
-                <div className="space-y-6">
-                  <button
-                    onClick={() => { triggerHaptic(); setShowNewTicket(true); }}
-                    className="w-full bg-blue-50 text-blue-700 p-4 rounded-2xl font-bold flex items-center justify-between border border-blue-100 hover:bg-blue-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <HelpCircle className="w-6 h-6" />
-                      <span>Precisa de ajuda?</span>
-                    </div>
-                    <Plus className="w-5 h-5" />
-                  </button>
-
-                  <div>
-                    <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-gray-400" />
-                      Seus Chamados
-                    </h4>
-                    
-                    {loading ? (
-                      <div className="flex justify-center py-8">
-                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    ) : tickets.length === 0 ? (
-                      <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                        <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500 text-sm">Você ainda não tem chamados abertos.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {tickets.map((ticket) => (
-                          <div 
-                            key={ticket.id} 
-                            className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer"
-                            onClick={() => handleOpenTicketChat(ticket.id)}
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <h5 className="font-bold text-gray-900">{ticket.subject}</h5>
-                              <div className="flex items-center gap-2">
-                                <MessageCircle size={14} className="text-blue-600" />
-                                <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${
-                                  ticket.status === 'open' ? 'bg-blue-100 text-blue-700' :
-                                  ticket.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-green-100 text-green-700'
-                                }`}>
-                                  {ticket.status === 'open' ? 'Aberto' : ticket.status === 'in_progress' ? 'Em análise' : 'Resolvido'}
-                                </span>
-                              </div>
-                            </div>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{ticket.message}</p>
-                            <p className="text-[10px] text-gray-400">
-                              {new Date(ticket.createdAt?._seconds * 1000 || ticket.createdAt).toLocaleString('pt-BR')}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <View style={styles.ticketsList}>
+                  {tickets.map((ticket) => (
+                    <TouchableOpacity 
+                      key={ticket.id} 
+                      style={styles.ticketItem}
+                      onPress={() => handleOpenTicketChat(ticket.id)}
+                    >
+                      <View style={styles.ticketHeader}>
+                        <Text style={styles.ticketSubject}>{ticket.subject}</Text>
+                        <View style={[styles.statusBadge, ticket.status === 'open' ? styles.statusOpen : ticket.status === 'in_progress' ? styles.statusInProgress : styles.statusResolved]}>
+                          <Text style={styles.statusText}>
+                            {ticket.status === 'open' ? 'Aberto' : ticket.status === 'in_progress' ? 'Em análise' : 'Resolvido'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.ticketMessage} numberOfLines={2}>{ticket.message}</Text>
+                      <Text style={styles.ticketDate}>
+                        {new Date(ticket.createdAt?._seconds * 1000 || ticket.createdAt).toLocaleString('pt-BR')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
-            </div>
-          </motion.div>
-          <ChatModal
-            isOpen={isChatOpen}
-            onClose={() => setIsChatOpen(false)}
-            messages={chatMessages}
-            newMessage={newMessage}
-            setNewMessage={setNewMessage}
-            onSendMessage={handleSendMessage}
-            userId={auth.currentUser?.uid}
-          />
-        </div>
-      )}
-    </AnimatePresence>
+            </View>
+          )}
+        </ScrollView>
+        <ChatModal
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          messages={chatMessages}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          onSendMessage={handleSendMessage}
+          userId={auth.currentUser?.uid}
+        />
+      </Animated.View>
+    </View>
   );
 };
 
-const Plus = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-  </svg>
-);
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modal: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '90%',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  handle: {
+    width: 48,
+    height: 6,
+    backgroundColor: '#d1d5db',
+    borderRadius: 3,
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 24,
+  },
+  formContainer: {
+    gap: 12,
+  },
+  backButton: {
+    marginBottom: 16,
+  },
+  backButtonText: {
+    color: '#2563eb',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  pickerContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 12,
+  },
+  pickerButton: {
+    padding: 16,
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  submitButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  listContainer: {
+    gap: 24,
+  },
+  newTicketButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eff6ff',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  newTicketButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  newTicketButtonText: {
+    color: '#1d4ed8',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    color: '#111827',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#f9fafb',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    color: '#6b7280',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  ticketsList: {
+    gap: 12,
+  },
+  ticketItem: {
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  ticketHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  ticketSubject: {
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statusOpen: {
+    backgroundColor: '#dbeafe',
+  },
+  statusInProgress: {
+    backgroundColor: '#fef3c7',
+  },
+  statusResolved: {
+    backgroundColor: '#dcfce7',
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  ticketMessage: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 8,
+  },
+  ticketDate: {
+    fontSize: 10,
+    color: '#9ca3af',
+  },
+});

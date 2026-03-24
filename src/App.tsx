@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Toaster, toast } from "sonner";
 import {
   Menu,
   Navigation,
@@ -25,18 +23,6 @@ import {
   getDocs,
   updateDoc,
 } from "firebase/firestore";
-import { Geolocation } from "@capacitor/geolocation";
-import { Capacitor, registerPlugin } from "@capacitor/core";
-import { PushNotifications } from "@capacitor/push-notifications";
-import { LocalNotifications } from "@capacitor/local-notifications";
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
-import { StatusBar, Style } from "@capacitor/status-bar";
-import { Device } from "@capacitor/device";
-import { Keyboard } from "@capacitor/keyboard";
-import { App as CapApp } from "@capacitor/app";
-import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
-
-const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 
 import {
   auth,
@@ -48,12 +34,12 @@ import {
   onMessage,
 } from "./firebase";
 import { handleFirestoreError, OperationType } from "./firebase-error";
-import Map from "./components/Map";
+import Map, { MapProps } from "./components/Map";
 import { TermsModal } from "./components/TermsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Skeleton } from "./components/Skeleton";
 import { SideMenu } from "./components/Menu";
-import { BottomNav } from "./components/BottomNav";
+import { StackAwareTabBar } from "./components/StackAwareTabBar";
 import { DriverVerification } from "./components/DriverVerification";
 import { AuthModal } from "./components/AuthModal";
 import { ChatModal } from "./components/ChatModal";
@@ -77,12 +63,8 @@ import { SavedPlacesModal } from "./components/SavedPlacesModal";
 import { ReferralModal } from "./components/ReferralModal";
 import { PromoModal } from "./components/PromoModal";
 import { DriverEarningsModal } from "./components/DriverEarningsModal";
+import { motion } from "motion/react";
 
-declare global {
-  interface Window {
-    recaptchaVerifier: any;
-  }
-}
 
 interface SavedPlace {
   id: string;
@@ -93,32 +75,18 @@ interface SavedPlace {
   icon?: "home" | "work" | "star";
 }
 
-const MemoizedMap = React.memo(Map);
+const MemoizedMap = React.memo(Map) as React.FC<MapProps>;
 const MemoizedRideFlow = React.memo(RideFlow);
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [shareRideId, setShareRideId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/share-ride/')) {
-      const id = path.split('/')[2];
-      setShareRideId(id);
-    }
-  }, []);
-
-  if (shareRideId) {
-    return <ShareRideView rideId={shareRideId} />;
-  }
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(
-    null,
-  );
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [rideStatus, setRideStatus] = useState<
-    "idle" | "searching" | "selecting" | "requesting" | "accepted" | "completed"
+    "idle" | "searching" | "selecting" | "requesting" | "accepted" | "arrived" | "completed"
   >("idle");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -129,6 +97,7 @@ export default function App() {
   } | null>(null);
   const [route, setRoute] = useState<[number, number][] | null>(null);
   const [routeSteps, setRouteSteps] = useState<any[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number } | null>(null);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [appMode, setAppMode] = useState<"rider" | "driver">("rider");
   const [availableRides, setAvailableRides] = useState<any[]>([]);
@@ -168,8 +137,6 @@ export default function App() {
     if (appMode === "driver" && activeDriverRide) {
       setOtherUserName(activeDriverRide.userName || "Passageiro");
     } else if (appMode === "rider" && rideStatus !== "idle") {
-      // For rider, we might not have the driver name easily accessible in a single state
-      // unless we fetch it or it's in activeRideData (which we don't have here)
       setOtherUserName("Motorista");
     }
     setIsChatOpen(true);
@@ -199,11 +166,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('map');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
-  const [vehicleData, setVehicleData] = useState({
+  const [vehicleData, setVehicleData] = useState<{
+    model: string;
+    color: string;
+    plate: string;
+    year: string;
+    cnhUrl?: string;
+    crlvUrl?: string;
+    selfieUrl?: string;
+  }>({
     model: "",
     color: "",
     plate: "",
     year: "",
+    cnhUrl: "",
+    crlvUrl: "",
+    selfieUrl: "",
   });
   const [centerTrigger, setCenterTrigger] = useState(0);
   const [isOnline, setIsOnline] = useState(false);
@@ -226,6 +204,8 @@ export default function App() {
   const [isReferralOpen, setIsReferralOpen] = useState(false);
   const [isPromoOpen, setIsPromoOpen] = useState(false);
   const [isEarningsOpen, setIsEarningsOpen] = useState(false);
+
+  // ...
   const [referralCode, setReferralCode] = useState("");
   const [referralStats, setReferralStats] = useState<any>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -233,42 +213,7 @@ export default function App() {
   // ... (rest of the component)
 
   // Native Polish
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      // Configure Status Bar
-      StatusBar.setStyle({ style: Style.Light });
-      StatusBar.setBackgroundColor({ color: '#ffffff' });
-      
-      // Configure Keyboard
-      if (Capacitor.getPlatform() === 'ios') {
-        Keyboard.setAccessoryBarVisible({ isVisible: false });
-      }
-
-      // Hide Splash Screen if needed (usually handled by config but good to be sure)
-      // SplashScreen.hide();
-
-      // Handle Android Back Button
-      const backListener = CapApp.addListener('backButton', ({ canGoBack }) => {
-        if (!canGoBack) {
-          if (isMenuOpen) {
-            setIsMenuOpen(false);
-          } else if (rideStatus !== 'idle') {
-            // Confirm cancel ride or go back to idle
-            if (rideStatus === 'selecting') {
-              setRideStatus('idle');
-              setDestination(null);
-            }
-          } else {
-            CapApp.exitApp();
-          }
-        }
-      });
-
-      return () => {
-        backListener.then(l => l.remove());
-      };
-    }
-  }, [isMenuOpen, rideStatus]);
+  // Removed native-specific configurations (StatusBar, Keyboard, App back button) as they are not applicable to React Web.
 
   useEffect(() => {
     if (user) {
@@ -289,10 +234,10 @@ export default function App() {
   const handleApplyReferral = async (code: string) => {
     try {
       await userService.applyReferralCode(code);
-      toast.success("Código de indicação aplicado com sucesso!");
+      alert("Código de indicação aplicado com sucesso!");
       fetchReferralInfo(); // Refresh stats
     } catch (error: any) {
-      toast.error(error.message);
+      alert(error.message);
     }
   };
 
@@ -331,23 +276,16 @@ export default function App() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
-  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
-    if (Capacitor.isNativePlatform()) {
-      await Haptics.impact({ style });
-    }
+  const triggerHaptic = async (style?: any) => {
+    // Haptics not supported on web
   };
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   // Handle Shared Ride
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedId = params.get("sharedRideId");
-    if (sharedId) {
-      setCurrentRideId(sharedId);
-      setIsSharedView(true);
-      setRideStatus("accepted");
-    }
+    // Shared ride handling needs to be adapted for React Native navigation
+    // This is a placeholder for now
   }, []);
 
   const getGreeting = () => {
@@ -443,73 +381,19 @@ export default function App() {
     if (!user) return;
 
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Native Android/iOS Push Notifications via Capacitor
-        let permStatus = await PushNotifications.checkPermissions();
-
-        if (permStatus.receive === 'prompt') {
-          permStatus = await PushNotifications.requestPermissions();
-        }
-
-        if (permStatus.receive !== 'granted') {
-          console.warn("User denied push notification permission");
-          return;
-        }
-
-        // Register with Apple / Google to receive push via APNS/FCM
-        await PushNotifications.register();
-
-        // Clear previous listeners to avoid duplicates
-        await PushNotifications.removeAllListeners();
-
-        // On success, we should be able to receive notifications
-        PushNotifications.addListener('registration', async (token) => {
-          console.log('Push registration success, token: ' + token.value);
-          try {
-            await userService.updateFcmToken(token.value);
-            console.log("Native FCM Token saved");
-          } catch (e) {
-            console.error("Error saving native token", e);
-          }
+      // Web Push Notifications via Firebase JS SDK
+      if (!messaging) return;
+      
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        const token = await getToken(messaging, {
+          vapidKey:
+            "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeZ1TBAtrL9yG4PAL794RVjvQVKrqCjQ2EnusRoSVtrejPAvRsEg", // Placeholder
         });
 
-        PushNotifications.addListener('registrationError', (error: any) => {
-          console.error('Error on registration: ' + JSON.stringify(error));
-        });
-
-        PushNotifications.addListener(
-          'pushNotificationReceived',
-          (notification) => {
-            console.log('Push received: ' + JSON.stringify(notification));
-            toast(notification.title || "Nova Notificação", {
-              description: notification.body,
-              duration: 5000,
-            });
-          },
-        );
-
-        PushNotifications.addListener(
-          'pushNotificationActionPerformed',
-          (notification) => {
-            console.log('Push action performed: ' + JSON.stringify(notification));
-          },
-        );
-
-      } else {
-        // Web Push Notifications via Firebase JS SDK
-        if (!messaging) return;
-        
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-          const token = await getToken(messaging, {
-            vapidKey:
-              "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeZ1TBAtrL9yG4PAL794RVjvQVKrqCjQ2EnusRoSVtrejPAvRsEg", // Placeholder
-          });
-
-          if (token) {
-            await userService.updateFcmToken(token);
-            console.log("Web FCM Token saved");
-          }
+        if (token) {
+          await userService.updateFcmToken(token);
+          console.log("Web FCM Token saved");
         }
       }
     } catch (error) {
@@ -523,10 +407,7 @@ export default function App() {
 
     const unsubscribe = onMessage(messaging, (payload) => {
       console.log("Message received. ", payload);
-      toast(payload.notification?.title || "Nova Notificação", {
-        description: payload.notification?.body,
-        duration: 5000,
-      });
+      alert(`${payload.notification?.title || "Nova Notificação"}: ${payload.notification?.body}`);
     });
 
     return () => {
@@ -573,8 +454,8 @@ export default function App() {
 
   // Run recovery on app resume (foreground)
   useEffect(() => {
-    const listener = CapApp.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
         console.log("App resumed, recovering state and reconnecting socket...");
         socketService.connect();
         if (appMode === "driver" && isOnline) {
@@ -582,15 +463,17 @@ export default function App() {
         }
         recoverActiveRide();
       }
-    });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      listener.then(l => l.remove());
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [appMode, isOnline, recoverActiveRide]);
 
   const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -601,7 +484,7 @@ export default function App() {
 
     if (query.length > 2) {
       searchTimeoutRef.current = setTimeout(async () => {
-        // Verificar cache
+      // Verificar cache
         const cacheKey = `search_cache_${query.toLowerCase()}`;
         const cachedResults = localStorage.getItem(cacheKey);
         if (cachedResults) {
@@ -696,16 +579,17 @@ export default function App() {
   };
 
   const recenterMap = () => {
-    window.dispatchEvent(new CustomEvent('center-map'));
+    // This needs to be adapted for React Native, e.g., using a ref to the map
+    setCenterTrigger(prev => prev + 1);
   };
 
   const handleSelectDestination = async (place: any) => {
     if (!user) {
       setIsLoginModalOpen(true);
-      toast.error("Por favor, faça login para buscar uma corrida.");
+      alert("Erro: Por favor, faça login para buscar uma corrida.");
       return;
     }
-    triggerHaptic(ImpactStyle.Medium);
+    triggerHaptic();
     const destLat = parseFloat(place.lat);
     const destLng = parseFloat(place.lon);
     setDestination({ lat: destLat, lng: destLng, name: place.display_name });
@@ -714,7 +598,7 @@ export default function App() {
     setSearchQuery("");
 
     if (!userLocation) {
-      toast.error("Localização não disponível. Tente novamente em instantes.");
+      alert("Erro: Localização não disponível. Tente novamente em instantes.");
       // Tenta obter a localização novamente
       try {
         const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
@@ -767,12 +651,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     if (rideStatus === "requesting" && currentRideId) {
       timeoutId = setTimeout(async () => {
         try {
           await rideService.cancelRide(currentRideId, "Tempo expirado");
-          toast.error("Nenhum motorista aceitou a corrida. Tente novamente.");
+          alert("Erro: Nenhum motorista aceitou a corrida. Tente novamente.");
         } catch (error) {
           console.error("Error auto-cancelling ride:", error);
         }
@@ -789,9 +673,9 @@ export default function App() {
   }, [rideStatus, currentRideId]);
 
   const handleRequestRide = async () => {
-    triggerHaptic(ImpactStyle.Heavy);
+    triggerHaptic();
     if (!user) {
-      toast.error("Por favor, faça login para pedir uma corrida.");
+      alert("Erro: Por favor, faça login para pedir uma corrida.");
       return;
     }
     if (!userLocation || !destination) return;
@@ -829,11 +713,11 @@ export default function App() {
       });
       setCurrentRideId(ride.id);
       console.log("Corrida criada com ID:", ride.id);
-      toast.success("Buscando motorista...");
+      alert("Buscando motorista...");
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, "rides");
       setRideStatus("selecting");
-      toast.error("Erro ao solicitar corrida.");
+      alert("Erro ao solicitar corrida.");
     }
   };
 
@@ -841,10 +725,10 @@ export default function App() {
     if (currentRideId) {
       try {
         await rideService.cancelRide(currentRideId, reason);
-        toast.success("Corrida cancelada.");
+        alert("Corrida cancelada.");
       } catch (error) {
         console.error("Error cancelling ride:", error);
-        toast.error("Erro ao cancelar corrida.");
+        alert("Erro ao cancelar corrida.");
       }
     }
     setCurrentRideId(null);
@@ -860,10 +744,10 @@ export default function App() {
     if (!user) return;
     try {
       await rideService.cancelRide(rideId, "Cancelado pelo motorista");
-      toast.success("Corrida cancelada.");
+      alert("Corrida cancelada.");
     } catch (error) {
       console.error("Error cancelling ride:", error);
-      toast.error("Erro ao cancelar corrida.");
+      alert("Erro ao cancelar corrida.");
     }
     setActiveDriverRide(null);
     setDriverRouteRideId(null);
@@ -919,7 +803,7 @@ export default function App() {
           setRideStatus("completed");
           setCompletedRideData(data);
         } else if (data.status === "cancelled") {
-          toast.error("A corrida foi cancelada.");
+          alert("Erro: A corrida foi cancelada.");
           setCurrentRideId(null);
           setRideStatus("idle");
           setDestination(null);
@@ -1064,10 +948,10 @@ export default function App() {
     const updateDriverLocation = async () => {
       try {
         // 1. Update Firestore (for persistence and offline discovery)
-        await userService.updateLocation(userLocation.lat, userLocation.lng, activeDriverRide?.id);
+        await userService.updateLocation(userLocation[0], userLocation[1], activeDriverRide?.id);
 
         // 2. Broadcast via Socket (for real-time updates to riders)
-        socketService.updateLocation({ uid: user.uid, lat: userLocation.lat, lng: userLocation.lng, rideId: activeDriverRide?.id });
+        socketService.updateLocation({ uid: user.uid, lat: userLocation[0], lng: userLocation[1], rideId: activeDriverRide?.id });
       } catch (error) {
         console.error("Error updating location:", error);
       }
@@ -1112,9 +996,14 @@ export default function App() {
                   [coord[1], coord[0]] as [number, number],
               );
               setRoute(routeLatLngs);
-              // Armazenar as instruções (steps)
-              const steps = data.routes[0].legs[0].steps;
+              // Armazenar as instruções (steps) e informações da rota
+              const routeData = data.routes[0];
+              const steps = routeData.legs[0].steps;
               setRouteSteps(steps);
+              setRouteInfo({
+                distance: routeData.distance,
+                duration: routeData.duration
+              });
             } else {
               setRoute([
                 userLocation,
@@ -1145,10 +1034,10 @@ export default function App() {
     if (!user) return;
     try {
       await rideService.acceptRide(rideId);
-      toast.success("Corrida aceita!");
+      alert("Sucesso: Corrida aceita!");
     } catch (error) {
       console.error("Error accepting ride:", error);
-      toast.error("Erro ao aceitar corrida.");
+      alert("Erro: Erro ao aceitar corrida.");
     }
   };
 
@@ -1156,10 +1045,10 @@ export default function App() {
     if (!user) return;
     try {
       await rideService.updateRideStatus(rideId, "completed");
-      toast.success("Viagem concluída!");
+      alert("Sucesso: Viagem concluída!");
     } catch (error) {
       console.error("Error completing ride:", error);
-      toast.error("Erro ao concluir viagem.");
+      alert("Erro: Erro ao concluir viagem.");
     }
   };
 
@@ -1168,13 +1057,13 @@ export default function App() {
     try {
       await rideService.updateRideStatus(rideId, newStatus);
       if (newStatus === "arrived") {
-        toast.success("Você chegou ao local de embarque!");
+        alert("Sucesso: Você chegou ao local de embarque!");
       } else if (newStatus === "in_progress") {
-        toast.success("Corrida iniciada!");
+        alert("Sucesso: Corrida iniciada!");
       }
     } catch (error) {
       console.error("Error updating ride status:", error);
-      toast.error("Erro ao atualizar status da corrida.");
+      alert("Erro: Erro ao atualizar status da corrida.");
     }
   };
 
@@ -1182,10 +1071,10 @@ export default function App() {
     if (currentRideId && rating > 0) {
       try {
         await rideService.rateRide(currentRideId, rating, tip);
-        toast.success("Avaliação enviada!");
+        alert("Sucesso: Avaliação enviada!");
       } catch (error) {
         console.error("Error saving rating", error);
-        toast.error("Erro ao enviar avaliação.");
+        alert("Erro: Erro ao enviar avaliação.");
       }
     }
     setCurrentRideId(null);
@@ -1217,10 +1106,10 @@ export default function App() {
       setSearchQuery("");
       setSearchResults([]);
       setRideStatus("idle");
-      toast.success("Local salvo com sucesso!");
+      alert("Sucesso: Local salvo com sucesso!");
     } catch (error) {
       console.error("Error saving place:", error);
-      toast.error("Erro ao salvar local.");
+      alert("Erro: Erro ao salvar local.");
     }
   };
 
@@ -1250,10 +1139,10 @@ export default function App() {
       await updateDoc(doc(db, "users", user.uid), {
         savedPlaces: updatedPlaces
       });
-      toast.success("Local salvo com sucesso!");
+      alert("Sucesso: Local salvo com sucesso!");
     } catch (error) {
       console.error("Error saving place:", error);
-      toast.error("Erro ao salvar local.");
+      alert("Erro: Erro ao salvar local.");
     }
   };
 
@@ -1265,7 +1154,7 @@ export default function App() {
       await updateDoc(doc(db, "users", user.uid), {
         savedPlaces: updatedPlaces
       });
-      toast.success("Local removido.");
+      alert("Sucesso: Local removido.");
     } catch (error) {
       console.error("Error removing place:", error);
     }
@@ -1282,11 +1171,8 @@ export default function App() {
     };
     setNotifications(prev => [newNotif, ...prev]);
     
-    triggerHaptic(ImpactStyle.Light);
-    toast(title, {
-      description: body,
-      duration: 5000,
-    });
+    triggerHaptic();
+    Alert.alert(title, body);
 
     if (Notification.permission === "granted" && !Capacitor.isNativePlatform()) {
       new Notification(title, { body });
@@ -1335,8 +1221,7 @@ export default function App() {
     fetchInitialMessages();
   }, [currentRideId, activeDriverRide?.id]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !user) return;
 
     const rideId = appMode === "rider" ? currentRideId : activeDriverRide?.id;
@@ -1347,7 +1232,7 @@ export default function App() {
       setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
-      toast.error("Erro ao enviar mensagem.");
+      alert("Erro: Erro ao enviar mensagem.");
     }
   };
 
@@ -1398,10 +1283,10 @@ export default function App() {
       setVehicleData(updatedVehicleData);
       setDriverStatus("pending");
       setIsVehicleProfileOpen(false);
-      toast.success("Cadastro enviado para análise!");
+      alert("Sucesso: Cadastro enviado para análise!");
     } catch (error) {
       console.error("Error saving vehicle profile", error);
-      toast.error("Erro ao enviar documentos.");
+      alert("Erro: Erro ao enviar documentos.");
     }
   };
 
@@ -1477,13 +1362,14 @@ export default function App() {
             async function callback(location, error) {
               if (error) {
                 if (error.code === "NOT_AUTHORIZED") {
-                  if (window.confirm(
-                    "This app needs your location, " +
-                    "but does not have permission.\n\n" +
-                    "Open settings now?"
-                  )) {
-                    BackgroundGeolocation.openSettings();
-                  }
+                  Alert.alert(
+                    "Permissão de Localização",
+                    "Este aplicativo precisa da sua localização, mas não tem permissão.\n\nAbrir configurações agora?",
+                    [
+                      { text: "Cancelar", style: "cancel" },
+                      { text: "Abrir", onPress: () => BackgroundGeolocation.openSettings() }
+                    ]
+                  );
                 }
                 return console.error(error);
               }
@@ -1553,7 +1439,7 @@ export default function App() {
         // Re-trigger the tracking logic
         setCenterTrigger(prev => prev + 1);
       } else {
-        toast.error("Permissão de localização negada. O app não funcionará corretamente.");
+        alert("Erro: Permissão de localização negada. O app não funcionará corretamente.");
       }
     } catch (e) {
       console.error("Error requesting location permission", e);
@@ -1569,18 +1455,17 @@ export default function App() {
   }, [appMode]);
 
   const handleShareRide = (rideId: string) => {
-    const shareUrl = `${window.location.origin}?sharedRideId=${rideId}`;
-    navigator.clipboard.writeText(shareUrl);
-    toast.success("Link de compartilhamento copiado!");
+    // Placeholder for React Native sharing
+    Alert.alert("Compartilhar", `Compartilhar corrida: ${rideId}`);
   };
 
   const handleLogout = async () => {
     try {
       await logOut();
-      toast.success("Você saiu da conta.");
+      alert("Sucesso: Você saiu da conta.");
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("Erro ao sair da conta.");
+      alert("Erro: Erro ao sair da conta.");
     }
   };
 
@@ -1592,14 +1477,14 @@ export default function App() {
       // Excluir usuário do Auth
       await user.delete();
       setIsDeleteConfirmOpen(false);
-      toast.success("Conta excluída com sucesso.");
+      alert("Sucesso: Conta excluída com sucesso.");
     } catch (error: any) {
       console.error("Delete account error:", error);
       if (error.code === 'auth/requires-recent-login') {
-        toast.error("Por segurança, faça login novamente antes de excluir sua conta.");
+        alert("Erro: Por segurança, faça login novamente antes de excluir sua conta.");
         await logOut();
       } else {
-        toast.error("Erro ao excluir conta. Tente novamente mais tarde.");
+        alert("Erro: Erro ao excluir conta. Tente novamente mais tarde.");
       }
     }
   };
@@ -1630,7 +1515,7 @@ export default function App() {
     } catch (error) {
       console.error("Error toggling online status", error);
       setIsOnline(!isOnline); // Revert on error
-      toast.error("Erro ao atualizar status.");
+      Alert.alert("Erro", "Erro ao atualizar status.");
     }
   };
 
@@ -1680,14 +1565,14 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <Toaster position="top-center" />
-      <div className="relative h-screen w-full overflow-hidden bg-gray-100 font-sans">
+      <View style={styles.container}>
         {/* Map Layer */}
         <MemoizedMap
           userLocation={userLocation}
           destination={destination}
           route={route}
           routeSteps={routeSteps}
+          routeInfo={routeInfo}
           driverLocation={driverLocation}
           centerTrigger={centerTrigger}
           appMode={appMode}
@@ -1698,30 +1583,29 @@ export default function App() {
         />
 
         {/* Top UI Overlay */}
-        <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-start p-4 pointer-events-none">
+        <View style={styles.topOverlay}>
           {/* Menu Button */}
-          <button
-            aria-label="Menu"
-            onClick={() => {
+          <TouchableOpacity
+            onPress={() => {
               triggerHaptic();
               setIsMenuOpen(!isMenuOpen);
             }}
-            className="bg-white p-3 rounded-full shadow-md pointer-events-auto hover:bg-gray-50 transition-colors"
+            style={styles.menuButton}
           >
-            <Menu className="w-6 h-6 text-gray-800" />
-          </button>
+            <Menu size={24} color="#1f2937" />
+          </TouchableOpacity>
 
           {/* Safety/Promo Button */}
-          <button 
-            onClick={() => {
-              triggerHaptic(ImpactStyle.Heavy);
+          <TouchableOpacity 
+            onPress={() => {
+              triggerHaptic();
               // Future: Open safety center
             }}
-            className="bg-white p-3 rounded-full shadow-md pointer-events-auto hover:bg-gray-50 transition-colors"
+            style={styles.menuButton}
           >
-            <ShieldAlert className="w-6 h-6 text-blue-600" />
-          </button>
-        </div>
+            <ShieldAlert size={24} color="#2563eb" />
+          </TouchableOpacity>
+        </View>
 
         {/* Side Menu */}
         <SideMenu
@@ -1734,6 +1618,7 @@ export default function App() {
             setAppMode(newMode);
             setDestination(null);
             setRoute(null);
+            setRouteSteps([]);
             setRideEstimate(null);
             setIsMenuOpen(false);
           }}
@@ -1771,29 +1656,50 @@ export default function App() {
 
         {/* Bottom Navigation */}
         {appMode === 'rider' && rideStatus === 'idle' && (
-          <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+          <StackAwareTabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            isNested={isHistoryOpen || isWalletOpen || isPrivacyOpen || isSupportOpen || isSafetyCenterOpen || isRateRideOpen || isCancelRideOpen || isVehicleProfileOpen || isVerificationOpen || isProfileOpen || isNotificationCenterOpen || isSavedPlacesOpen || isReferralOpen || isPromoOpen || isEarningsOpen || isChatOpen}
+            onBack={() => {
+              setIsHistoryOpen(false);
+              setIsWalletOpen(false);
+              setIsPrivacyOpen(false);
+              setIsSupportOpen(false);
+              setIsSafetyCenterOpen(false);
+              setIsRateRideOpen(false);
+              setIsCancelRideOpen(false);
+              setIsVehicleProfileOpen(false);
+              setIsVerificationOpen(false);
+              setIsProfileOpen(false);
+              setIsNotificationCenterOpen(false);
+              setIsSavedPlacesOpen(false);
+              setIsReferralOpen(false);
+              setIsPromoOpen(false);
+              setIsEarningsOpen(false);
+              setIsChatOpen(false);
+            }}
+          />
         )}
 
         {/* Driver Verification Modal */}
-        <AnimatePresence>
-          {isVerificationOpen && (
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-0 z-[2000]"
-            >
-              <DriverVerification 
-                user={user} 
-                onClose={() => setIsVerificationOpen(false)} 
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {isVerificationOpen && (
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateX: verificationAnim }],
+              },
+            ]}
+          >
+            <DriverVerification 
+              user={user} 
+              onClose={() => setIsVerificationOpen(false)} 
+            />
+          </Animated.View>
+        )}
 
         {/* Bottom UI Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none flex flex-col items-end p-4 gap-4">
+        <div className="fixed bottom-0 left-0 right-0 z-10 flex flex-col items-end p-4 gap-4">
           {/* Center Location Button */}
           {rideStatus === "idle" && (
             <button
@@ -1801,21 +1707,17 @@ export default function App() {
                 triggerHaptic();
                 handleCenterLocation();
               }}
-              className="bg-white p-3 rounded-full shadow-md pointer-events-auto hover:bg-gray-50 transition-colors"
+              className="bg-white p-3 rounded-full shadow-md"
             >
-              <Navigation className="w-6 h-6 text-blue-600" />
+              <Navigation size={24} className="text-blue-600" />
             </button>
           )}
 
           {/* Bottom Sheet */}
-          <motion.div
-            layout
-            className="bg-white w-full rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.1)] pointer-events-auto overflow-hidden flex flex-col max-h-[80vh]"
-            style={{ paddingBottom: 'var(--safe-bottom)' }}
-          >
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-4 shrink-0" />
+          <div className="bg-white w-full rounded-t-3xl shadow-lg max-h-[80vh] overflow-hidden">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-4" />
 
-            <div className="px-6 pb-6 overflow-y-auto">
+            <div className="px-6 pb-6">
               {appMode === "driver" ? (
                 <DriverUI
                   isOnline={isOnline}
@@ -1892,7 +1794,7 @@ export default function App() {
                 </>
               )}
             </div>
-          </motion.div>
+          </div>
         </div>
         {/* Chat Modal */}
         <ChatModal
@@ -1965,38 +1867,42 @@ export default function App() {
         <UserProfileModal
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
-          user={user}
+          userData={user}
+          onUpdate={() => {}}
         />
 
         {/* Admin Panel Modal */}
-        <AnimatePresence>
-          {isAdminPanelOpen && (
-            <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
-              >
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                  <h2 className="text-2xl font-black text-gray-900">Painel Admin</h2>
-                  <button
-                    onClick={() => setIsAdminPanelOpen(false)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <ShieldAlert className="w-6 h-6 text-gray-500" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  <AdminPanel 
-                    showHeatmap={showHeatmap} 
-                    setShowHeatmap={setShowHeatmap} 
-                  />
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        {isAdminPanelOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-2xl font-black text-gray-900">Painel Admin</h2>
+                <button
+                  onClick={() => setIsAdminPanelOpen(false)}
+                  className="p-2 rounded-full bg-gray-100"
+                >
+                  <ShieldAlert size={24} className="text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 p-6">
+                <AdminPanel 
+                  showHeatmap={showHeatmap} 
+                  setShowHeatmap={setShowHeatmap} 
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
 
         {/* Vehicle Profile Modal */}
         <VehicleProfileModal
@@ -2014,113 +1920,97 @@ export default function App() {
         />
 
         {/* Location Disclosure Modal */}
-        <AnimatePresence>
-          {showLocationDisclosure && (
-            <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col"
+        {showLocationDisclosure && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl p-6"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+                <Navigation size={32} className="text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-black text-gray-900 text-center mb-6">Uso de Localização</h2>
+              <p className="text-base text-gray-600 text-center mb-6 leading-6">
+                Este aplicativo coleta dados de localização para permitir o rastreamento de corridas e encontrar motoristas próximos, mesmo quando o aplicativo está fechado ou não está em uso.
+              </p>
+              <button
+                onClick={() => {
+                  triggerHaptic();
+                  handleAcceptLocationDisclosure();
+                }}
+                className="w-full bg-blue-600 py-4 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30"
               >
-                <div className="flex justify-center mb-4">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Navigation className="w-8 h-8 text-blue-600" />
-                  </div>
-                </div>
-                <h2 className="text-2xl font-bold text-center mb-4 text-gray-900">Uso de Localização</h2>
-                <p className="text-gray-600 text-center mb-6 leading-relaxed">
-                  Este aplicativo coleta dados de localização para permitir o rastreamento de corridas e encontrar motoristas próximos, mesmo quando o aplicativo está fechado ou não está em uso.
-                </p>
-                <button
-                  onClick={() => {
-                    triggerHaptic(ImpactStyle.Medium);
-                    handleAcceptLocationDisclosure();
-                  }}
-                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 transition-colors"
-                >
-                  Eu entendo e concordo
-                </button>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+                <span className="text-white text-base font-bold">Eu entendo e concordo</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
 
         {/* Background Education Modal */}
-        <AnimatePresence>
-          {showBackgroundEducationModal && (
-            <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col"
-              >
-                <div className="flex justify-center mb-4">
-                  <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <Navigation className="w-8 h-8 text-yellow-600" />
-                  </div>
-                </div>
-                <h2 className="text-2xl font-bold text-center mb-4 text-gray-900">Atenção Motorista!</h2>
-                <div className="text-gray-600 text-sm mb-6 space-y-4">
-                  <p>
-                    Para que você possa receber corridas e ter sua localização atualizada mesmo com o aplicativo minimizado (usando o Waze, por exemplo), você precisa ajustar duas configurações no seu celular:
-                  </p>
-                  <ul className="list-disc pl-5 space-y-2 font-medium text-gray-800">
-                    <li>Permissão de Localização: Mude para <strong>"Permitir o tempo todo"</strong>.</li>
-                    <li>Economia de Bateria: Mude para <strong>"Sem restrições"</strong>.</li>
-                  </ul>
-                  <p className="text-xs text-gray-500 mt-4">
-                    Se você não fizer isso, o sistema do seu celular vai "congelar" o aplicativo e você não receberá corridas.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      // Se o plugin estiver disponível, abre as configurações
-                      if ((window as any).BackgroundGeolocation) {
-                        (window as any).BackgroundGeolocation.openSettings();
-                      } else {
-                        toast.info("Por favor, abra as configurações do seu celular manualmente.");
-                      }
-                    }}
-                    className="w-full bg-gray-100 text-gray-800 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
-                  >
-                    Abrir Configurações
-                  </button>
-                  <button
-                    onClick={() => {
-                      triggerHaptic(ImpactStyle.Medium);
-                      handleAcceptBackgroundEducation();
-                    }}
-                    className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Entendi, Ficar Online
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        {showBackgroundEducationModal && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl p-6"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <Navigation size={32} className="text-amber-600" />
+              </div>
+              <h2 className="text-2xl font-black text-gray-900 text-center mb-6">Atenção Motorista!</h2>
+              <div className="mb-6 space-y-4">
+                <p className="text-base text-gray-600 text-center leading-6">
+                  Para que você possa receber corridas e ter sua localização atualizada mesmo com o aplicativo minimizado (usando o Waze, por exemplo), você precisa ajustar duas configurações no seu celular:
+                </p>
+                <p className="text-base text-gray-900 mb-2 pl-4">• Permissão de Localização: Mude para "Permitir o tempo todo".</p>
+                <p className="text-base text-gray-900 mb-2 pl-4">• Economia de Bateria: Mude para "Sem restrições".</p>
+                <p className="text-xs text-gray-400 mt-4">
+                  Se você não fizer isso, o sistema do seu celular vai "congelar" o aplicativo e você não receberá corridas.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    // BackgroundGeolocation.openSettings(); // Not applicable for web
+                    alert("Por favor, ajuste as configurações de localização e bateria no seu dispositivo manualmente.");
+                  }}
+                  className="w-full bg-gray-100 py-3 rounded-xl flex items-center justify-center"
+                >
+                  <span className="text-gray-900 text-base font-bold">Abrir Configurações</span>
+                </button>
+                <button
+                  onClick={() => {
+                    triggerHaptic();
+                    handleAcceptBackgroundEducation();
+                  }}
+                  className="w-full bg-blue-600 py-4 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30"
+                >
+                  <span className="text-white text-base font-bold">Entendi, Ficar Online</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
         <SafetyCenterModal
           isOpen={isSafetyCenterOpen}
           onClose={() => setIsSafetyCenterOpen(false)}
           onShareRide={() => {
             setIsSafetyCenterOpen(false);
-            // Assuming handleShareRide is available or can be triggered
-            // For simplicity, let's trigger a custom event or call a function if possible
-            // Since handleShareRide is inside RideFlow, maybe just trigger the share action if rideId is available
-            if (currentRideId) {
-                // We need to access handleShareRide, but it's in RideFlow.
-                // Let's just use the same logic here or expose it.
-                const shareUrl = `${window.location.origin}/share-ride/${currentRideId}`;
-                if (navigator.share) {
-                  navigator.share({ title: 'Acompanhe minha viagem', url: shareUrl });
-                } else {
-                  navigator.clipboard.writeText(shareUrl);
-                  toast.success("Link de compartilhamento copiado!");
-                }
-            }
+            // Placeholder for React Native sharing
+            alert("Compartilhar: Funcionalidade de compartilhamento nativa a ser implementada.");
           }}
         />
 
@@ -2146,9 +2036,6 @@ export default function App() {
         <ReferralModal
           isOpen={isReferralOpen}
           onClose={() => setIsReferralOpen(false)}
-          referralCode={referralCode}
-          onApplyReferral={handleApplyReferral}
-          hasAppliedReferral={!!referralStats?.appliedCode}
         />
 
         <PromoModal
@@ -2164,9 +2051,9 @@ export default function App() {
           try {
             await userService.acceptTerms();
             setShowTerms(false);
-            toast.success("Termos aceitos com sucesso!");
+            alert("Sucesso: Termos aceitos com sucesso!");
           } catch (error) {
-            toast.error("Erro ao aceitar termos.");
+            alert("Erro: Erro ao aceitar termos.");
           }
         }} />
 
@@ -2174,7 +2061,189 @@ export default function App() {
           isOpen={isEarningsOpen}
           onClose={() => setIsEarningsOpen(false)}
         />
-      </div>
+        </View>
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+  },
+  topOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+    zIndex: 10,
+  },
+  menuButton: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2000,
+    backgroundColor: 'white',
+  },
+  bottomOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    padding: 16,
+    gap: 16,
+  },
+  bottomSheet: {
+    backgroundColor: 'white',
+    width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  bottomSheetHandle: {
+    width: 48,
+    height: 6,
+    backgroundColor: '#d1d5db',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  bottomSheetContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2000,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    width: '100%',
+    maxWidth: 800,
+    maxHeight: '90%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 50,
+    backgroundColor: '#f3f4f6',
+  },
+  modalBody: {
+    flex: 1,
+    padding: 24,
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#dbeafe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#4b5563',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  primaryButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalTextContainer: {
+    marginBottom: 24,
+  },
+  modalListItem: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginBottom: 8,
+    paddingLeft: 16,
+  },
+  modalSubText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 16,
+  },
+  buttonGroup: {
+    gap: 12,
+  },
+  secondaryButton: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#1f2937',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});

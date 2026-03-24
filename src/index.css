@@ -10,12 +10,33 @@
   /* iOS System Colors */
   --system-background: #f2f2f7;
   --system-secondary-background: #ffffff;
+  --system-tertiary-background: #ebebeb;
   --system-label: #000000;
   --system-secondary-label: #8e8e93;
+  --system-tertiary-label: #c7c7cc;
   --system-blue: #007aff;
   --system-green: #34c759;
   --system-red: #ff3b30;
+  --system-orange: #ff9500;
+  --system-yellow: #ffcc00;
   --system-separator: #c6c6c8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --system-background: #000000;
+    --system-secondary-background: #1c1c1e;
+    --system-tertiary-background: #2c2c2e;
+    --system-label: #ffffff;
+    --system-secondary-label: #ebebf599;
+    --system-tertiary-label: #ebebf54d;
+    --system-blue: #0a84ff;
+    --system-green: #30d158;
+    --system-red: #ff453a;
+    --system-orange: #ff9f0a;
+    --system-yellow: #ffd60a;
+    --system-separator: #38383a;
+  }
 }
 
 body {
@@ -28,12 +49,14 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   height: 100dvh;
   width: 100dvw;
-  background-color: white;
+  background-color: var(--system-background);
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
   padding-left: var(--safe-left);
@@ -80,11 +103,12 @@ body {
 }
 
 .ios-list-item:active {
-  background: #ebebeb;
+  background: var(--system-tertiary-background);
 }
 
 .ios-input {
-  background: #f2f2f7;
+  background: var(--system-background);
+  color: var(--system-label);
   border-radius: 10px;
   padding: 12px 16px;
   border: 1px solid transparent;
