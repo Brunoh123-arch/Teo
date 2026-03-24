@@ -5,9 +5,7 @@ import {
   Briefcase, 
   Star, 
   ArrowLeft, 
-  MapPin,
-  ChevronRight,
-  X
+  MapPin 
 } from 'lucide-react';
 import { Skeleton } from './Skeleton';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -64,75 +62,74 @@ export const SearchUI: React.FC<SearchUIProps> = ({
     <>
       {rideStatus === "idle" && (
         <>
-          <h1 className="text-3xl font-bold text-[var(--system-label)] mb-6 px-1">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
             {getGreeting()}
           </h1>
 
           {/* Search Input */}
           <div
-            className="bg-[var(--system-secondary-background)] rounded-2xl p-4 flex items-center gap-3 mb-8 cursor-text shadow-sm border border-[var(--system-separator)]/30 active:opacity-70 transition-opacity"
+            className="bg-[var(--system-secondary-background)] rounded-full p-4 flex items-center gap-3 mb-6 cursor-text shadow-sm border border-gray-100"
             onClick={() => {
               triggerHaptic();
               setRideStatus("searching");
             }}
           >
             <Search className="w-5 h-5 text-[var(--system-secondary-label)]" />
-            <span className="text-[var(--system-secondary-label)] font-medium text-lg">
+            <span className="text-[var(--system-secondary-label)] font-semibold text-lg">
               Para onde vamos?
             </span>
           </div>
 
           {/* Recent/Saved Places */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-[var(--system-separator)]/30 shadow-sm bg-[var(--system-secondary-background)]">
+          <div className="flex flex-col gap-1 overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
             {user ? (
               isLoadingPlaces ? (
-                <div className="p-4 space-y-4">
+                <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                    <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
               ) : savedPlaces.length > 0 ? (
-                savedPlaces.map((place, index) => (
+                savedPlaces.map((place) => (
                   <div
                     key={place.id}
                     onClick={() => {
                       triggerHaptic(ImpactStyle.Medium);
                       handleSelectSavedPlace(place);
                     }}
-                    className={`ios-list-item w-full cursor-pointer ${index === savedPlaces.length - 1 ? 'border-none' : ''}`}
+                    className="ios-list-item w-full cursor-pointer"
                   >
-                    <div className="bg-[var(--system-background)] p-2.5 rounded-full mr-4">
+                    <div className="bg-gray-100 p-2 rounded-full mr-4">
                       {place.icon === "home" && (
-                        <Home className="w-5 h-5 text-[var(--system-blue)]" />
+                        <Home className="w-5 h-5 text-gray-600" />
                       )}
                       {place.icon === "work" && (
-                        <Briefcase className="w-5 h-5 text-[var(--system-orange)]" />
+                        <Briefcase className="w-5 h-5 text-gray-600" />
                       )}
                       {(!place.icon || place.icon === "star") && (
-                        <Star className="w-5 h-5 text-[var(--system-yellow)]" />
+                        <Star className="w-5 h-5 text-gray-600" />
                       )}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-[var(--system-label)] text-lg leading-tight">
+                      <h3 className="font-semibold text-[var(--system-label)] text-lg">
                         {place.name}
                       </h3>
-                      <p className="text-sm text-[var(--system-secondary-label)] line-clamp-1 mt-0.5">
+                      <p className="text-sm text-[var(--system-secondary-label)]">
                         {place.address}
                       </p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-[var(--system-tertiary-label)]" />
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-[var(--system-secondary-label)] font-medium">
+                <div className="text-center py-4 ios-list-item">
+                  <p className="text-gray-500 mb-2">
                     Nenhum local salvo ainda.
                   </p>
                 </div>
               )
             ) : (
-              <div className="text-center py-8 px-4">
-                <p className="text-[var(--system-secondary-label)] font-medium mb-3">
+              <div className="text-center py-4 ios-list-item">
+                <p className="text-gray-500 mb-2">
                   Faça login para salvar seus locais favoritos.
                 </p>
                 <button
@@ -140,7 +137,7 @@ export const SearchUI: React.FC<SearchUIProps> = ({
                     triggerHaptic();
                     setIsLoginModalOpen(true);
                   }}
-                  className="text-[var(--system-blue)] font-semibold text-lg active:opacity-70"
+                  className="text-[var(--system-blue)] font-medium hover:underline"
                 >
                   Entrar
                 </button>
@@ -152,17 +149,17 @@ export const SearchUI: React.FC<SearchUIProps> = ({
 
       {rideStatus === "searching" && (
         <div className="flex flex-col h-full">
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-4">
             <button
               onClick={() => {
                 triggerHaptic();
                 setRideStatus("idle");
               }}
-              className="p-2 -ml-2 active:opacity-50 transition-opacity"
+              className="p-2 -ml-2 hover:bg-gray-100 rounded-full"
             >
-              <ArrowLeft className="w-7 h-7 text-[var(--system-blue)]" />
+              <ArrowLeft className="w-6 h-6 text-gray-800" />
             </button>
-            <div className="bg-[var(--system-secondary-background)] rounded-2xl p-3.5 flex items-center gap-3 flex-1 shadow-sm border border-[var(--system-separator)]/30">
+            <div className="bg-[var(--system-secondary-background)] rounded-full p-4 flex items-center gap-3 flex-1 shadow-sm border border-gray-100">
               {isSearching ? (
                 <div className="w-5 h-5 border-2 border-[var(--system-blue)] border-t-transparent rounded-full animate-spin" />
               ) : (
@@ -172,37 +169,29 @@ export const SearchUI: React.FC<SearchUIProps> = ({
                 autoFocus
                 type="text"
                 placeholder="Para onde vamos?"
-                className="bg-transparent border-none outline-none w-full text-lg font-medium text-[var(--system-label)] placeholder:text-[var(--system-tertiary-label)]"
+                className="bg-transparent border-none outline-none w-full text-lg font-semibold text-[var(--system-label)]"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
               />
-              {searchQuery && (
-                <button 
-                  onClick={() => handleSearch('')}
-                  className="p-1 bg-[var(--system-tertiary-label)] rounded-full"
-                >
-                  <X className="w-3 h-3 text-[var(--system-background)]" />
-                </button>
-              )}
             </div>
           </div>
 
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-[var(--system-separator)]/30 shadow-sm bg-[var(--system-secondary-background)]">
+          <div className="flex flex-col gap-1 overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
             {!placeToSave ? (
               searchResults.map((result, i) => (
                 <div
                   key={i}
-                  className={`ios-list-item w-full cursor-pointer ${i === searchResults.length - 1 ? 'border-none' : ''}`}
+                  className="ios-list-item w-full cursor-pointer"
                   onClick={() => {
                     triggerHaptic(ImpactStyle.Medium);
                     handleSelectDestination(result);
                   }}
                 >
-                  <div className="bg-[var(--system-background)] p-3 rounded-xl mr-4">
+                  <div className="bg-blue-50 p-3 rounded-2xl mr-4">
                     <MapPin className="w-5 h-5 text-[var(--system-blue)]" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-[var(--system-label)] text-lg line-clamp-1 leading-tight">
+                    <h3 className="font-semibold text-[var(--system-label)] text-lg line-clamp-1">
                       {result.name}
                     </h3>
                     <p className="text-sm text-[var(--system-secondary-label)] line-clamp-1 mt-0.5">
@@ -215,30 +204,29 @@ export const SearchUI: React.FC<SearchUIProps> = ({
                       triggerHaptic();
                       setPlaceToSave(result);
                     }}
-                    className="p-3 text-[var(--system-tertiary-label)] active:text-[var(--system-yellow)] transition-colors"
+                    className="p-2 text-[var(--system-secondary-label)] hover:text-yellow-500 transition-colors"
                   >
                     <Star className="w-6 h-6" />
                   </button>
                 </div>
               ))
             ) : (
-              <div className="p-6 bg-[var(--system-secondary-background)]">
-                <h3 className="text-xl font-bold text-[var(--system-label)] mb-2">
+              <div className="mt-2 p-4 border border-gray-200 rounded-xl bg-gray-50">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
                   Salvar endereço como:
                 </h3>
-                <p className="text-sm text-[var(--system-secondary-label)] mb-6 line-clamp-2 font-medium">
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                   {placeToSave.display_name}
                 </p>
-                <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="flex gap-3 mb-4">
                   <button
                     onClick={() => {
                       triggerHaptic(ImpactStyle.Medium);
                       handleSavePlace(placeToSave, "home", "Casa");
                     }}
-                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-[var(--system-background)] border border-[var(--system-separator)]/20 active:bg-[var(--system-tertiary-background)] transition-colors"
+                    className="flex-1 bg-white border border-gray-200 p-3 rounded-xl flex flex-col items-center gap-2 hover:border-blue-500 hover:text-blue-600 transition-colors"
                   >
-                    <Home className="w-7 h-7 text-[var(--system-blue)]" />
-                    <span className="text-sm font-bold text-[var(--system-label)]">Casa</span>
+                    <Home className="w-6 h-6" /> Casa
                   </button>
                   <button
                     onClick={() => {
@@ -249,10 +237,9 @@ export const SearchUI: React.FC<SearchUIProps> = ({
                         "Trabalho",
                       );
                     }}
-                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-[var(--system-background)] border border-[var(--system-separator)]/20 active:bg-[var(--system-tertiary-background)] transition-colors"
+                    className="flex-1 bg-white border border-gray-200 p-3 rounded-xl flex flex-col items-center gap-2 hover:border-blue-500 hover:text-blue-600 transition-colors"
                   >
-                    <Briefcase className="w-7 h-7 text-[var(--system-orange)]" />
-                    <span className="text-sm font-bold text-[var(--system-label)]">Trabalho</span>
+                    <Briefcase className="w-6 h-6" /> Trabalho
                   </button>
                   <button
                     onClick={() => {
@@ -263,10 +250,9 @@ export const SearchUI: React.FC<SearchUIProps> = ({
                         "Favorito",
                       );
                     }}
-                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-[var(--system-background)] border border-[var(--system-separator)]/20 active:bg-[var(--system-tertiary-background)] transition-colors"
+                    className="flex-1 bg-white border border-gray-200 p-3 rounded-xl flex flex-col items-center gap-2 hover:border-blue-500 hover:text-blue-600 transition-colors"
                   >
-                    <Star className="w-7 h-7 text-[var(--system-yellow)]" />
-                    <span className="text-sm font-bold text-[var(--system-label)]">Favorito</span>
+                    <Star className="w-6 h-6" /> Favorito
                   </button>
                 </div>
                 <button
@@ -274,7 +260,7 @@ export const SearchUI: React.FC<SearchUIProps> = ({
                     triggerHaptic();
                     setPlaceToSave(null);
                   }}
-                  className="w-full py-4 text-[var(--system-red)] font-bold text-lg active:opacity-50 transition-opacity"
+                  className="w-full py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors"
                 >
                   Cancelar
                 </button>

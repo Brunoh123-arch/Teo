@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Navigation, MapPin, Clock, ArrowRight, CornerDownRight, CornerDownLeft, ArrowUp, ArrowUpRight } from 'lucide-react';
+import { Navigation, MapPin, Clock, ArrowRight, CornerDownRight, CornerDownLeft, ArrowUp } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 import { calculateBearing, getInstruction } from '../lib/navigationUtils';
@@ -13,12 +13,6 @@ const userIcon = L.divIcon({
   className: 'user-location-icon',
   iconSize: [16, 16],
   iconAnchor: [8, 8],
-});
-
-const driverUserIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082383.png',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
 });
 
 const destinationIcon = L.icon({
@@ -45,7 +39,6 @@ interface MapProps {
   destination?: {lat: number, lng: number} | null;
   route?: [number, number][] | null;
   routeSteps?: any[] | null;
-  routeInfo?: { distance: number, duration: number } | null;
   driverLocation?: [number, number] | null;
   centerTrigger?: number;
   appMode?: 'rider' | 'driver';
@@ -69,44 +62,35 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 // ... (getDistance function remains)
 
 // Componente de Overlay de Navegação
-const NavigationOverlay = ({ userLocation, destination, route, routeSteps, routeInfo }: { 
-  userLocation: [number, number] | null, 
-  destination?: {lat: number, lng: number, name?: string} | null, 
-  route?: [number, number][] | null, 
-  routeSteps?: any[] | null,
-  routeInfo?: { distance: number, duration: number } | null
-}) => {
+const NavigationOverlay = ({ userLocation, destination, route, routeSteps }: { userLocation: [number, number] | null, destination?: {lat: number, lng: number, name?: string} | null, route?: [number, number][] | null, routeSteps?: any[] | null }) => {
   const [lastInstruction, setLastInstruction] = useState<string | null>(null);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Encontrar o passo mais próximo baseado na localização do usuário
-  useEffect(() => {
-    if (!userLocation || !routeSteps || routeSteps.length === 0) return;
-
-    let closestIndex = 0;
+  // Encontrar o passo atual baseado na distância
+  const getNextStep = () => {
+    if (!userLocation || !routeSteps || routeSteps.length === 0) return null;
+    
+    let closestStep = null;
     let minDistance = Infinity;
 
-    routeSteps.forEach((step, index) => {
+    routeSteps.forEach((step) => {
       const [lng, lat] = step.maneuver.location;
       const dist = getDistance(userLocation[0], userLocation[1], lat, lng);
+      if (dist < 0.05) return; 
       if (dist < minDistance) {
         minDistance = dist;
-        closestIndex = index;
+        closestStep = { ...step, distance: dist };
       }
     });
 
-    setCurrentStepIndex(closestIndex);
-  }, [userLocation, routeSteps]);
+    return closestStep;
+  };
 
-  if (!userLocation || !destination || !route || route.length < 2 || !routeSteps || routeSteps.length === 0) return null;
-
-  const currentStep = routeSteps[currentStepIndex];
-  const nextStep = routeSteps[currentStepIndex + 1];
+  const currentStep = getNextStep();
+  const instruction = currentStep ? currentStep.maneuver.instruction : "Siga em frente";
+  const distanceToManeuver = currentStep ? currentStep.distance : 0;
   
-  const isArrival = currentStep?.maneuver?.type === 'arrive';
-  const instruction = isArrival ? "Você chegou!" : (currentStep ? currentStep.maneuver.instruction : "Siga em frente");
-  const distanceToManeuver = currentStep ? (currentStep.distance >= 1000 ? `${(currentStep.distance / 1000).toFixed(1)} km` : `${Math.round(currentStep.distance)} m`) : "";
-  const street = isArrival ? destination?.name : (currentStep?.name || "");
+  // Progress bar logic (simplified: 0 to 1)
+  const progress = Math.min(Math.max(1 - (distanceToManeuver / 0.5), 0), 1); // Assume 500m maneuver
 
   useEffect(() => {
     if (instruction !== lastInstruction) {
@@ -122,144 +106,105 @@ const NavigationOverlay = ({ userLocation, destination, route, routeSteps, route
     }
   }, [instruction, lastInstruction]);
 
+  if (!userLocation || !destination || !route || route.length < 2) return null;
+
   const getIcon = (instr: string) => {
     const text = instr.toLowerCase();
-    if (text.includes("direita")) return <CornerDownRight className="w-9 h-9" />;
-    if (text.includes("esquerda")) return <CornerDownLeft className="w-9 h-9" />;
-    if (text.includes("rotatória")) return <Navigation className="w-9 h-9 rotate-45" />;
-    return <ArrowUp className="w-9 h-9" />;
+    if (text.includes("direita")) return <CornerDownRight className="w-8 h-8" />;
+    if (text.includes("esquerda")) return <CornerDownLeft className="w-8 h-8" />;
+    if (text.includes("rotatória")) return <Navigation className="w-8 h-8 rotate-45" />;
+    return <ArrowUp className="w-8 h-8" />;
   };
 
-  // Calcular tempo e distância restante
-  const remainingDistance = routeInfo ? (routeInfo.distance / 1000).toFixed(1) : "0";
-  const remainingTime = routeInfo ? Math.round(routeInfo.duration / 60) : 0;
+  const distance = getDistance(userLocation[0], userLocation[1], destination.lat, destination.lng);
+  const estimatedTime = Math.round(distance * 2);
 
   return (
-    <motion.div 
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="absolute top-4 left-4 right-4 z-[2000] pointer-events-none"
-    >
-      <div className="bg-[#1c1c1e]/95 backdrop-blur-xl rounded-3xl p-5 shadow-2xl border border-white/10 flex items-center gap-5 pointer-events-auto overflow-hidden relative">
-        <div className="absolute bottom-0 left-0 h-1 bg-blue-500/20 w-full" />
-        
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 shrink-0">
-          <div className="text-white">
+    <AnimatePresence>
+      <motion.div 
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -100, opacity: 0 }}
+        className="absolute top-4 left-4 right-4 z-[1000] bg-white/80 backdrop-blur-2xl rounded-[2rem] p-5 shadow-lg border border-white/50 flex flex-col gap-3"
+      >
+        <div className="flex items-center gap-4">
+          <div className="bg-blue-500 p-4 rounded-2xl text-white shadow-md">
             {getIcon(instruction)}
           </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Próxima manobra</p>
+            <p className="font-semibold text-gray-900 text-xl leading-tight">{instruction}</p>
+            <p className="text-blue-600 font-semibold text-lg">
+              {distanceToManeuver > 0.1 
+                ? `${(distanceToManeuver * 1000).toFixed(0)} metros` 
+                : "Agora"}
+            </p>
+          </div>
         </div>
         
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-[11px] font-bold text-blue-400 uppercase tracking-widest mb-0.5">Próxima manobra</p>
-            <p className="text-lg font-black text-white tabular-nums">{distanceToManeuver}</p>
-          </div>
-          <h2 className="text-xl font-bold text-white leading-tight truncate">
-            {instruction}
-          </h2>
-          {street && (
-            <p className="text-sm font-medium text-gray-400 truncate mt-0.5">
-              {street}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-2 mx-2">
-        {nextStep && (
+        {/* Progress Bar */}
+        <div className="h-1.5 w-full bg-gray-200/50 rounded-full overflow-hidden">
           <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex-1 bg-[#2c2c2e]/90 backdrop-blur-md rounded-2xl p-3 border border-white/5 flex items-center gap-3 shadow-lg pointer-events-auto"
-          >
-            <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center shrink-0">
-              <ArrowUpRight className="text-gray-300 w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Depois</p>
-              <p className="text-sm font-semibold text-gray-200 truncate">{nextStep.maneuver.instruction}</p>
-            </div>
-          </motion.div>
-        )}
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-[#2c2c2e]/90 backdrop-blur-md rounded-2xl p-3 border border-white/5 flex flex-col items-center justify-center shadow-lg pointer-events-auto min-w-[80px]"
-        >
-          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Chegada</p>
-          <p className="text-sm font-black text-white">{remainingTime} min</p>
-          <p className="text-[10px] text-gray-400">{remainingDistance} km</p>
-        </motion.div>
-      </div>
-    </motion.div>
+            className="h-full bg-blue-500"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress * 100}%` }}
+          />
+        </div>
+        
+        <div className="flex items-center justify-between border-t border-gray-200/50 pt-3 mt-1">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-gray-400" />
+            <p className="font-medium text-gray-600 text-sm truncate max-w-[120px]">{destination.name || "Destino"}</p>
+          </div>
+          <div className="flex items-center gap-2 bg-gray-200/50 px-3 py-1 rounded-full">
+            <Clock className="w-4 h-4 text-gray-500" />
+            <p className="font-semibold text-gray-900 text-sm">{estimatedTime} min</p>
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
-function MapUpdater({ userLocation, destination, route, driverLocation, centerTrigger, isFollowing, setIsFollowing }: { 
-  userLocation: [number, number] | null, 
-  destination?: {lat: number, lng: number, name?: string} | null, 
-  route?: [number, number][] | null, 
-  driverLocation?: [number, number] | null,
-  centerTrigger: number,
-  isFollowing: boolean,
-  setIsFollowing: (val: boolean) => void
-}) {
+function MapUpdater({ center, destination, route, driverLocation, centerTrigger }: any) {
   const map = useMap();
-  const [lastTrigger, setLastTrigger] = React.useState(0);
 
-  // Centralizar no usuário se estiver seguindo
+  // Manual recenter
   useEffect(() => {
-    if (userLocation && isFollowing) {
-      map.setView(userLocation, map.getZoom());
-    }
-  }, [userLocation, isFollowing, map]);
+    const handleCenter = () => {
+      // If there's a driver, center on driver
+      if (driverLocation) {
+        map.setView(driverLocation, 17);
+      } else if (center) {
+        map.setView(center, 17);
+      }
+    };
+    window.addEventListener('center-map', handleCenter);
+    return () => window.removeEventListener('center-map', handleCenter);
+  }, [center, driverLocation, map]);
 
-  // Centralizar forçadamente pelo trigger
-  useEffect(() => {
-    if (centerTrigger > lastTrigger && userLocation) {
-      map.setView(userLocation, 17);
-      setLastTrigger(centerTrigger);
-      setIsFollowing(true);
-    }
-  }, [centerTrigger, lastTrigger, userLocation, map, setIsFollowing]);
-
-  // Ajustar limites quando a rota ou destino muda
+  // Initial fit bounds when route or destination is set
   useEffect(() => {
     if (!map) return;
-    
     const bounds: [number, number][] = [];
-    if (userLocation) bounds.push(userLocation);
+    if (center) bounds.push(center);
     if (destination) bounds.push([destination.lat, destination.lng]);
     if (driverLocation) bounds.push(driverLocation);
     
     if (bounds.length > 1) {
-      map.fitBounds(bounds, { padding: [80, 80], maxZoom: 16 });
-      setIsFollowing(false);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     } else if (bounds.length === 1) {
       map.setView(bounds[0], 15);
     }
-  }, [destination, route, map, setIsFollowing]);
-
-  // Detectar arraste manual para parar de seguir
-  useEffect(() => {
-    const onDrag = () => {
-      setIsFollowing(false);
-    };
-    map.on('dragstart', onDrag);
-    return () => {
-      map.off('dragstart', onDrag);
-    };
-  }, [map, setIsFollowing]);
+  }, [destination, route, map]); // Only trigger on destination/route changes, not every driver move
 
   return null;
 }
 
-export default function Map({ userLocation, destination, route, routeSteps, routeInfo, driverLocation, centerTrigger, appMode, nearbyDrivers, isSharedView, heatmapData }: MapProps) {
+export default function Map({ userLocation, destination, route, routeSteps, driverLocation, centerTrigger, appMode, nearbyDrivers, isSharedView, heatmapData }: MapProps) {
   const defaultCenter: [number, number] = [-1.295, -47.926];
   const [mapType, setMapType] = React.useState<'roadmap' | 'satellite'>('roadmap');
   const [showTraffic, setShowTraffic] = React.useState(false);
-  const [isFollowing, setIsFollowing] = React.useState(true);
 
   return (
     <div className="absolute inset-0 z-0 bg-gray-100">
@@ -301,31 +246,13 @@ export default function Map({ userLocation, destination, route, routeSteps, rout
         </button>
       </div>
 
-      {/* Botão de Centralizar */}
-      <div className="absolute right-4 bottom-32 z-[1000] flex flex-col gap-2">
-        <button 
-          onClick={() => {
-            setIsFollowing(true);
-            Haptics.impact({ style: ImpactStyle.Light });
-          }}
-          className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${
-            isFollowing 
-              ? 'bg-blue-600 text-white' 
-              : 'bg-white text-gray-600 border border-gray-200'
-          }`}
-        >
-          <Navigation className={`w-6 h-6 ${isFollowing ? 'fill-current' : ''}`} />
-        </button>
-      </div>
-
       {/* Navegação Própria - Apenas para Motorista */}
-      {appMode === 'driver' && !isSharedView && routeSteps && routeSteps.length > 0 && (
+      {appMode === 'driver' && (
         <NavigationOverlay 
           userLocation={userLocation} 
           destination={destination} 
           route={route} 
           routeSteps={routeSteps}
-          routeInfo={routeInfo}
         />
       )}
 
@@ -368,7 +295,7 @@ export default function Map({ userLocation, destination, route, routeSteps, rout
           />
         )}
         
-        {userLocation && <Marker position={userLocation} icon={appMode === 'driver' ? driverUserIcon : userIcon} />}
+        {userLocation && <Marker position={userLocation} icon={userIcon} />}
         {destination && <Marker position={[destination.lat, destination.lng]} icon={destinationIcon} />}
         {driverLocation && <Marker position={driverLocation} icon={assignedDriverIcon} />}
         
@@ -392,13 +319,11 @@ export default function Map({ userLocation, destination, route, routeSteps, rout
         )}
         
         <MapUpdater 
-          userLocation={userLocation} 
+          center={userLocation} 
           destination={destination} 
           route={route} 
           driverLocation={driverLocation} 
           centerTrigger={centerTrigger}
-          isFollowing={isFollowing}
-          setIsFollowing={setIsFollowing}
         />
       </MapContainer>
     </div>

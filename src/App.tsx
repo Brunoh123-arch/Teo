@@ -129,7 +129,6 @@ export default function App() {
   } | null>(null);
   const [route, setRoute] = useState<[number, number][] | null>(null);
   const [routeSteps, setRouteSteps] = useState<any[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number } | null>(null);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [appMode, setAppMode] = useState<"rider" | "driver">("rider");
   const [availableRides, setAvailableRides] = useState<any[]>([]);
@@ -1113,14 +1112,9 @@ export default function App() {
                   [coord[1], coord[0]] as [number, number],
               );
               setRoute(routeLatLngs);
-              // Armazenar as instruções (steps) e informações da rota
-              const routeData = data.routes[0];
-              const steps = routeData.legs[0].steps;
+              // Armazenar as instruções (steps)
+              const steps = data.routes[0].legs[0].steps;
               setRouteSteps(steps);
-              setRouteInfo({
-                distance: routeData.distance,
-                duration: routeData.duration
-              });
             } else {
               setRoute([
                 userLocation,
@@ -1694,7 +1688,6 @@ export default function App() {
           destination={destination}
           route={route}
           routeSteps={routeSteps}
-          routeInfo={routeInfo}
           driverLocation={driverLocation}
           centerTrigger={centerTrigger}
           appMode={appMode}
@@ -1741,7 +1734,6 @@ export default function App() {
             setAppMode(newMode);
             setDestination(null);
             setRoute(null);
-            setRouteSteps([]);
             setRideEstimate(null);
             setIsMenuOpen(false);
           }}
