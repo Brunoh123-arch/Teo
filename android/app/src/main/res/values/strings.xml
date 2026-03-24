@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Uppi</string>
+    <string name="title_activity_main">Uppi</string>
+    <string name="package_name">com.uppi.brasil</string>
+    <string name="custom_url_scheme">com.uppi.brasil</string>
+    <string name="server_client_id">357522916455-cdohmmkt2olpvh33harv2ha0hcgob5g7.apps.googleusercontent.com</string>
+</resources>

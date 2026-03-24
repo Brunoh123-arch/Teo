@@ -1,0 +1,273 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "phone": { "type": "string", "description": "User's phone number" },
+        "photoUrl": { "type": "string", "description": "URL to the user's profile photo" },
+        "isOnline": { "type": "boolean", "description": "Whether the driver is online" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "driverStatus": { "type": "string", "enum": ["active", "blocked", "pending_approval"], "description": "Driver's verification status" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "vehicle": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "plate": { "type": "string" },
+            "color": { "type": "string" },
+            "year": { "type": "string" }
+          }
+        }
+      },
+      "required": ["name", "email", "createdAt"]
+    },
+    "SupportTicket": {
+      "title": "Support Ticket",
+      "description": "A support request from a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string", "enum": ["ride", "payment", "account", "other"] },
+        "status": { "type": "string", "enum": ["open", "in_progress", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "subject", "message", "category", "status", "createdAt"]
+    },
+    "SupportMessage": {
+      "title": "Support Message",
+      "description": "A message within a support ticket",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "createdAt"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "A discount coupon",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "discountValue": { "type": "number" },
+        "usageLimit": { "type": "number" },
+        "usageCount": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "discountType", "discountValue", "isActive", "createdAt"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "A withdrawal request from a driver's wallet",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"] },
+        "pixKey": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "status", "pixKey", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "A log of administrative actions",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "adminId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "adminId", "timestamp"]
+    },
+    "SavedPlace": {
+      "title": "Saved Place",
+      "description": "A saved location for quick access (e.g., Home, Work)",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the place (e.g., Home, Work)"
+        },
+        "address": {
+          "type": "string",
+          "description": "Full address of the place"
+        },
+        "lat": {
+          "type": "number",
+          "description": "Latitude"
+        },
+        "lng": {
+          "type": "number",
+          "description": "Longitude"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the place was saved"
+        }
+      },
+      "required": ["name", "address", "lat", "lng", "createdAt"]
+    },
+    "Ride": {
+      "title": "Ride",
+      "description": "A ride request",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "originLat": { "type": "number" },
+        "originLng": { "type": "number" },
+        "destLat": { "type": "number" },
+        "destLng": { "type": "number" },
+        "destName": { "type": "string" },
+        "status": { "type": "string", "enum": ["searching", "accepted", "completed", "cancelled"] },
+        "price": { "type": "number", "description": "Estimated price of the ride" },
+        "paymentMethod": { "type": "string", "enum": ["pix", "dinheiro", "cartao"], "description": "Selected payment method" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "driverId": { "type": "string" },
+        "rating": { "type": "number" },
+        "cancelReason": { "type": "string" }
+      },
+      "required": ["userId", "originLat", "originLng", "destLat", "destLng", "destName", "status", "price", "paymentMethod", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message between driver and passenger",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "timestamp"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "User's digital wallet for ride payments",
+      "type": "object",
+      "properties": {
+        "balance": { "type": "number", "description": "Current balance in BRL" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["balance", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction (deposit, payment, withdrawal)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["deposit", "payment", "withdrawal"] },
+        "description": { "type": "string" },
+        "rideId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "type", "createdAt"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "Driver's identification or vehicle document",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "type": { "type": "string", "enum": ["cnh", "crlv", "selfie"] },
+        "url": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "reviewNote": { "type": "string" }
+      },
+      "required": ["driverId", "type", "url", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profile data"
+    },
+    "/users/{userId}/savedPlaces/{placeId}": {
+      "schema": {
+        "$ref": "#/entities/SavedPlace"
+      },
+      "description": "Stores saved places for a specific user"
+    },
+    "/users/{userId}/wallet": {
+      "schema": {
+        "$ref": "#/entities/Wallet"
+      },
+      "description": "Stores user's wallet balance"
+    },
+    "/transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/Transaction"
+      },
+      "description": "Stores financial transactions"
+    },
+    "/documents/{documentId}": {
+      "schema": {
+        "$ref": "#/entities/Document"
+      },
+      "description": "Stores driver documents for verification"
+    },
+    "/rides/{rideId}": {
+      "schema": {
+        "$ref": "#/entities/Ride"
+      },
+      "description": "Stores ride requests"
+    },
+    "/rides/{rideId}/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/Message"
+      },
+      "description": "Stores chat messages for a ride"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": {
+        "$ref": "#/entities/SupportTicket"
+      },
+      "description": "Stores support tickets"
+    },
+    "/support_tickets/{ticketId}/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/SupportMessage"
+      },
+      "description": "Stores messages within a support ticket"
+    },
+    "/coupons/{couponId}": {
+      "schema": {
+        "$ref": "#/entities/Coupon"
+      },
+      "description": "Stores discount coupons"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": {
+        "$ref": "#/entities/Withdrawal"
+      },
+      "description": "Stores withdrawal requests"
+    },
+    "/audit_logs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/AuditLog"
+      },
+      "description": "Stores administrative audit logs"
+    }
+  }
+}

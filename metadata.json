@@ -1,0 +1,9 @@
+{
+  "name": "Remix: Remix: Remix: Uppi",
+  "description": "Aplicativo de transporte para conectar motoristas e passageiros.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

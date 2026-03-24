@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "357522916455",
+    "project_id": "uppi-brasil",
+    "storage_bucket": "uppi-brasil.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357522916455:android:e61ebbe1835c38937d40c2",
+        "android_client_info": {
+          "package_name": "com.uppi.brasil"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_cdVO_PRIFbwdl8_dnFQRUl_LQPZCO4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
